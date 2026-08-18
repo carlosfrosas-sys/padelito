@@ -171,6 +171,7 @@
     width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:var(--muted);
   }
   .theme-btn:hover{color:var(--ink);border-color:var(--muted)}
+  .theme-btn[hidden]{display:none}   /* si no, el display:grid gana al atributo */
 
   /* ---------- pestañas de torneos ---------- */
   .tstrip{
@@ -3128,6 +3129,7 @@ function render(){
   /* --- portada y borrador: barra general para no perderse --- */
   if(enHome || !S || !S.started){
     document.body.classList.add("home");
+    setLive("");                       // en vivo solo dentro de un torneo
     var sa = document.getElementById("shareApp");
     sa.hidden = false;
     sa.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
