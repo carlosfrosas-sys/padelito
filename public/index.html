@@ -269,6 +269,33 @@
     text-transform:uppercase;color:var(--muted);margin:0 0 6px 2px;
   }
 
+  /* ---------- portada ---------- */
+  .clave-in{
+    font-family:var(--f-display);font-size:26px;font-weight:700;letter-spacing:.22em;
+    text-transform:uppercase;text-align:center;
+  }
+  .clave-in::placeholder{letter-spacing:.14em;font-size:20px;color:var(--muted)}
+  .hint.mal{color:var(--loss)}
+
+  .torl{display:flex;flex-direction:column}
+  .tor{display:flex;align-items:stretch;border-bottom:1px solid var(--line-soft)}
+  .tor:last-child{border-bottom:0}
+  .tor-ir{
+    flex:1;min-width:0;text-align:left;background:transparent;border:0;cursor:pointer;
+    padding:11px 13px;display:flex;flex-direction:column;gap:2px;
+  }
+  .tor-ir:hover{background:var(--card-2)}
+  .tor-n{
+    font-family:var(--f-display);font-size:19px;text-transform:uppercase;font-weight:600;
+    letter-spacing:.01em;overflow-wrap:anywhere;
+  }
+  .tor-m{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+  .tor-x{
+    flex:none;width:42px;border:0;border-left:1px solid var(--line-soft);background:transparent;
+    cursor:pointer;color:var(--muted);font-size:17px;line-height:1;
+  }
+  .tor-x:hover{color:var(--loss);background:var(--card-2)}
+
   /* ---------- fichas de jugadores ---------- */
   .roster{display:flex;flex-wrap:wrap;gap:7px}
   .rgroup{display:inline-flex;align-items:center;gap:1px}
@@ -629,6 +656,7 @@
         <small id="sub">americano · 0 jugadores</small>
       </div>
     </div>
+    <button class="theme-btn" id="inicio" data-act="inicio" title="Inicio" aria-label="Inicio" hidden>⌂</button>
     <span class="live" id="live" hidden><i></i><span></span></span>
     <button class="theme-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
   </div>
@@ -706,7 +734,7 @@ function freshT(n){
   };
 }
 function freshDB(){
-  return { v:2, seq:2, active:0, theme:null, roster:DEFAULT_ROSTER.slice(), tournaments:[freshT(1)] };
+  return { v:2, seq:1, active:0, theme:null, roster:DEFAULT_ROSTER.slice(), tournaments:[] };
 }
 
 function load(){
@@ -714,9 +742,13 @@ function load(){
     var raw = localStorage.getItem(LS);
     if(!raw) return null;
     var o = JSON.parse(raw);
-    if(o && o.v === 2 && Array.isArray(o.tournaments) && o.tournaments.length){
+    if(o && o.v === 2 && Array.isArray(o.tournaments)){
       o.tournaments.forEach(normalizeT);
-      o.active = Math.max(0, Math.min(o.active || 0, o.tournaments.length - 1));
+      // Los que quedaron a medias sin un solo jugador no aportan nada a la lista.
+      o.tournaments = o.tournaments.filter(function(t){
+        return t.started || t.players.length > 0;
+      });
+      o.active = Math.max(0, Math.min(o.active || 0, Math.max(0, o.tournaments.length - 1)));
       seedRoster(o);
       return o;
     }
@@ -764,6 +796,7 @@ function save(){
   if(!RO && S && S.remote) push(false);
 }
 function openT(i){
+  if(!DB.tournaments.length){ DB.active = 0; S = null; enHome = true; return; }
   DB.active = Math.max(0, Math.min(i, DB.tournaments.length - 1));
   S = DB.tournaments[DB.active];
   tab = "ronda";
@@ -783,6 +816,7 @@ var PROHIBIDO_MIRANDO = {
   rtoggle:1, rdel:1, rall:1, rnone:1, redit:1
 };
 var soyDueno = -1;              // índice del torneo local si tengo la clave
+var enHome = true;              // se decide al arrancar, más abajo
 
 var ROUTE = parseRoute();
 var BACKEND = null;          // null = sin comprobar · false = alojamiento estático
@@ -818,6 +852,19 @@ function randHex(bytes){
   return Array.prototype.map.call(a, function(b){
     return ("0" + b.toString(16)).slice(-2);
   }).join("");
+}
+/* Clave de acceso: 5 caracteres fáciles de dictar por teléfono.
+   Sin I, L, O, 0 ni 1 para que nadie los confunda. */
+var ALFA_CLAVE = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function nuevaClave(){
+  var a = new Uint8Array(5);
+  window.crypto.getRandomValues(a);
+  var out = "";
+  for(var i = 0; i < 5; i++) out += ALFA_CLAVE.charAt(a[i] % ALFA_CLAVE.length);
+  return out;
+}
+function limpiaClave(t){
+  return String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
 }
 function slugify(s){
   return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -883,11 +930,23 @@ function push(now){
   }, now ? 0 : 220);
 }
 function publish(){
-  if(!S.remote) S.remote = { slug: slugify(S.name) + "-" + randHex(3), key: randHex(16) };
-  save();
-  push(true);
-  render();
-  toast("Marcador publicado");
+  if(S.remote){ push(true); render(); return; }
+  var intentos = 0;
+  toast("Generando clave…");
+  (function probar(){
+    var c = nuevaClave();
+    fetch("/api/t/" + c, { cache:"no-store" }).then(function(r){
+      if(r.status === 404){                    // libre
+        S.remote = { slug:c, key:randHex(16) };
+        save(); push(true); render();
+        toast("Clave del torneo: " + c);
+      }else if(++intentos < 6){
+        probar();                              // ocupada, probamos otra
+      }else{
+        toast("No se pudo generar la clave, prueba otra vez");
+      }
+    }).catch(function(){ toast("Sin conexión"); });
+  })();
 }
 function stopSharing(){
   ask({
@@ -1478,6 +1537,7 @@ function startTournament(){
   save(); render();
 }
 function newTournament(){
+  enHome = false;
   DB.tournaments.push(freshT(DB.seq++));
   openT(DB.tournaments.length - 1);
   save(); render();
@@ -1496,8 +1556,8 @@ function deleteTournament(i){
     danger: true,
     onOk: function(){
       DB.tournaments.splice(i, 1);
-      if(!DB.tournaments.length) DB.tournaments.push(freshT(DB.seq++));
-      openT(Math.min(DB.active > i ? DB.active - 1 : DB.active, DB.tournaments.length - 1));
+      if(!DB.tournaments.length) enHome = true;
+      openT(DB.active > i ? DB.active - 1 : DB.active);
       save(); render();
       toast("Torneo eliminado");
     }
@@ -2334,6 +2394,48 @@ function shareCard(){
 }
 
 /* ============ render ============ */
+/* Portada: crear, entrar con clave, y los torneos guardados aquí. */
+function viewHome(){
+  var lista = DB.tournaments.map(function(t, i){
+    var jug = t.players.length;
+    var estado = !t.started ? "sin empezar"
+      : t.finished ? "concluido"
+      : "ronda " + (Math.min(t.cur + 1, t.rounds.length)) + " de " + t.rounds.length;
+    return '<div class="tor">' +
+      '<button class="tor-ir" data-act="switchT" data-i="'+i+'">' +
+        '<span class="tor-n">'+esc(t.name)+'</span>' +
+        '<span class="tor-m">'+jug+(jug===1?" jugador":" jugadores")+' · '+estado+
+          (t.remote ? ' · clave '+esc(t.remote.slug) : '')+'</span>' +
+      '</button>' +
+      '<button class="tor-x" data-act="delT" data-i="'+i+'" aria-label="Eliminar '+esc(t.name)+'">×</button>' +
+    '</div>';
+  }).join("");
+
+  return '' +
+  '<div class="stack" style="padding-top:18px">' +
+
+    '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
+
+    '<div class="card box">' +
+      '<h3>Entrar a un torneo</h3>' +
+      '<div class="row">' +
+        '<input class="field grow clave-in" id="claveIn" placeholder="CLAVE" maxlength="5" ' +
+          'autocomplete="off" autocapitalize="characters" spellcheck="false" data-act="clave">' +
+        '<button class="btn" data-act="entrar">Entrar</button>' +
+      '</div>' +
+      '<p class="hint" id="claveMsg">Pide la clave al organizador. Son 5 caracteres y solo sirve para mirar el marcador.</p>' +
+    '</div>' +
+
+    (DB.tournaments.length
+      ? '<div class="card">' +
+          '<div class="box" style="padding-bottom:4px"><h3>Mis torneos' +
+            '<span class="side-note">'+DB.tournaments.length+'</span></h3></div>' +
+          '<div class="torl">'+lista+'</div>' +
+        '</div>'
+      : '') +
+  '</div>';
+}
+
 function viewLoading(){
   if(roLoaded === "error"){
     return '<div class="stack" style="padding-top:24px">' +
@@ -2360,6 +2462,7 @@ function render(){
     var strip = document.getElementById("tstrip");
     strip.hidden = true;
     strip.innerHTML = "";        // nada de los torneos propios en el DOM
+    document.getElementById("inicio").hidden = true;
     if(!roLoaded || !S){
       tabsEl.hidden = true;
       view.innerHTML = viewLoading();
@@ -2387,20 +2490,19 @@ function render(){
     return;
   }
 
-  syncCourts();
+  /* --- portada --- */
+  if(enHome){
+    tabsEl.hidden = true;
+    document.getElementById("inicio").hidden = true;
+    view.innerHTML = viewHome();
+    document.getElementById("sub").textContent =
+      DB.tournaments.length ? DB.tournaments.length + (DB.tournaments.length===1?" torneo guardado":" torneos guardados")
+                            : "sorteo y marcador de pádel";
+    return;
+  }
+  document.getElementById("inicio").hidden = false;
 
-  // pestañas de torneos
-  document.getElementById("tstrip").hidden = false;
-  document.getElementById("tstrip").innerHTML =
-    DB.tournaments.map(function(t, i){
-      var n = t.players.length;
-      return '<span class="ttab" data-on="'+(i===DB.active?1:0)+'">' +
-        '<button class="tname" data-act="switchT" data-i="'+i+'">'+esc(t.name)+
-          (n?' <span style="opacity:.6">'+n+'</span>':'')+'</button>' +
-        '<button class="x" data-act="delT" data-i="'+i+'" aria-label="Eliminar '+esc(t.name)+'">×</button>' +
-      '</span>';
-    }).join("") +
-    '<button class="tnew" data-act="newT">+ Torneo</button>';
+  syncCourts();
 
   if(!S.started){
     tabsEl.hidden = true;
@@ -2474,7 +2576,34 @@ document.addEventListener("click", function(e){
   if(act === "start"){ startTournament(); return; }
   if(act === "redraw"){ redrawAll(); return; }
 
-  if(act === "switchT"){ openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return; }
+  if(act === "switchT"){
+    enHome = false;
+    openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
+  }
+  if(act === "inicio"){
+    enHome = true; RO = false; render(); window.scrollTo({top:0}); return;
+  }
+  if(act === "entrar"){
+    var campo = document.getElementById("claveIn");
+    var c = limpiaClave(campo && campo.value);
+    var msg = document.getElementById("claveMsg");
+    if(c.length !== 5){
+      msg.textContent = "La clave son 5 caracteres.";
+      msg.className = "hint mal";
+      return;
+    }
+    msg.textContent = "Buscando el torneo…";
+    msg.className = "hint";
+    fetch("/api/t/" + c, { cache:"no-store" }).then(function(r){
+      if(r.ok){ location.href = "/t/" + c; return; }
+      msg.textContent = "No existe ningún torneo con la clave " + c + ".";
+      msg.className = "hint mal";
+    }).catch(function(){
+      msg.textContent = "Sin conexión. Comprueba el wifi e inténtalo otra vez.";
+      msg.className = "hint mal";
+    });
+    return;
+  }
   if(act === "delT"){ deleteTournament(+el.dataset.i); return; }
   if(act === "newT"){ newTournament(); return; }
 
@@ -2516,6 +2645,11 @@ document.addEventListener("input", function(e){
     return;
   }
 
+  if(el.dataset.act === "clave"){
+    var lim = limpiaClave(el.value);
+    if(el.value !== lim) el.value = lim;
+    return;
+  }
   if(el.dataset.act === "rename"){
     S.name = el.value.trim() || "Torneo";
     save();
@@ -2564,6 +2698,12 @@ document.addEventListener("keydown", function(e){
     return;
   }
   if(e.key !== "Enter") return;
+  if(e.target.id === "claveIn"){
+    e.preventDefault();
+    var b = document.querySelector('[data-act="entrar"]');
+    if(b) b.click();
+    return;
+  }
   if(e.target.id === "newName"){
     e.preventDefault();
     if(e.target.value.trim()){
@@ -2594,6 +2734,9 @@ document.getElementById("tabs").addEventListener("click", function(e){
   render();
   window.scrollTo({ top:0, behavior:"smooth" });
 });
+
+/* Si dejaste un torneo a medias, la app abre en él. Si no, en la portada. */
+enHome = !(S && S.started && !S.finished);
 
 if(DB.theme) document.documentElement.setAttribute("data-theme", DB.theme);
 
