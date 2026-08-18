@@ -97,19 +97,18 @@
     --shadow:0 1px 1px rgba(0,0,0,.5), 0 14px 30px -18px rgba(0,0,0,.9);
   }
 
-  /* Colores de acento. Lima es el de siempre y no necesita bloque. */
-  :root[data-accent="azul"]{--brand:#1D6FA5;--brand-wash:#DCEBF5;--ball:#1D6FA5;--ball-strong:#175C89;--ball-ink:#FFFFFF;--ball-wash:#DCEBF5}
-  :root[data-accent="naranja"]{--brand:#A64F06;--brand-wash:#FAE6D3;--ball:#A64F06;--ball-strong:#8E4404;--ball-ink:#FFFFFF;--ball-wash:#FAE6D3}
-  :root[data-accent="rosa"]{--brand:#B32F70;--brand-wash:#FADEEB;--ball:#B32F70;--ball-strong:#95265B;--ball-ink:#FFFFFF;--ball-wash:#FADEEB}
-
+  /* Paletas completas por color. Lima es el juego original y no lleva bloque. */
+  :root[data-accent="azul"]{--paper:#DBE8F1;--card:#F7FAFC;--card-2:#E8F1F6;--ink:#0C2536;--muted:#4C7792;--line:#B7D1E2;--line-soft:#D9E7F0;--turf:#F1F6FA;--brand:#1D6FA5;--brand-wash:#DBE8F1;--ball:#1D6FA5;--ball-strong:#175C89;--ball-ink:#FFFFFF;--ball-wash:#DBE8F1}
+  :root[data-accent="naranja"]{--paper:#F5E6D9;--card:#FDF9F7;--card-2:#F9EFE7;--ink:#1A242A;--muted:#736C62;--line:#EBCCB2;--line-soft:#F5E4D6;--turf:#FBF5F1;--brand:#AB550D;--brand-wash:#F5E5D9;--ball:#A64F06;--ball-strong:#8E4404;--ball-ink:#FFFFFF;--ball-wash:#F5E5D9}
+  :root[data-accent="rosa"]{--paper:#F5DFEA;--card:#FDF8FA;--card-2:#F9EBF2;--ink:#192132;--muted:#796886;--line:#EBC0D5;--line-soft:#F4DDE9;--turf:#FBF3F7;--brand:#C0397B;--brand-wash:#F5DFE9;--ball:#B32F70;--ball-strong:#95265B;--ball-ink:#FFFFFF;--ball-wash:#F5DFE9}
   @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"])[data-accent="azul"]{--brand:#5FB4E8;--brand-wash:#12303F;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
-    :root:not([data-theme="light"])[data-accent="naranja"]{--brand:#F0A257;--brand-wash:#3A2716;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
-    :root:not([data-theme="light"])[data-accent="rosa"]{--brand:#F183B8;--brand-wash:#3A1428;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+    :root:not([data-theme="light"])[data-accent="azul"]{--paper:#091F2C;--card:#102F41;--card-2:#153A4E;--ink:#DFEBF3;--muted:#769DB4;--line:#1F4960;--line-soft:#183E51;--turf:#123346;--brand:#649CC0;--brand-wash:#123B53;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#123B53}
+    :root:not([data-theme="light"])[data-accent="naranja"]{--paper:#1A1D1D;--card:#252E2D;--card-2:#2E3838;--ink:#E7EBEB;--muted:#979A96;--line:#404642;--line-soft:#343B38;--turf:#273133;--brand:#CF8344;--brand-wash:#413728;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#413728}
+    :root:not([data-theme="light"])[data-accent="rosa"]{--paper:#1A1A28;--card:#25283B;--card-2:#2E3248;--ink:#E7E9F1;--muted:#9693AC;--line:#403F58;--line-soft:#34354A;--turf:#272C41;--brand:#D476A4;--brand-wash:#412B47;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#412B47}
   }
-  :root[data-theme="dark"][data-accent="azul"]{--brand:#5FB4E8;--brand-wash:#12303F;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
-  :root[data-theme="dark"][data-accent="naranja"]{--brand:#F0A257;--brand-wash:#3A2716;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
-  :root[data-theme="dark"][data-accent="rosa"]{--brand:#F183B8;--brand-wash:#3A1428;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+  :root[data-theme="dark"][data-accent="azul"]{--paper:#091F2C;--card:#102F41;--card-2:#153A4E;--ink:#DFEBF3;--muted:#769DB4;--line:#1F4960;--line-soft:#183E51;--turf:#123346;--brand:#649CC0;--brand-wash:#123B53;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#123B53}
+  :root[data-theme="dark"][data-accent="naranja"]{--paper:#1A1D1D;--card:#252E2D;--card-2:#2E3838;--ink:#E7EBEB;--muted:#979A96;--line:#404642;--line-soft:#343B38;--turf:#273133;--brand:#CF8344;--brand-wash:#413728;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#413728}
+  :root[data-theme="dark"][data-accent="rosa"]{--paper:#1A1A28;--card:#25283B;--card-2:#2E3248;--ink:#E7E9F1;--muted:#9693AC;--line:#403F58;--line-soft:#34354A;--turf:#272C41;--brand:#D476A4;--brand-wash:#412B47;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#412B47}
 
   *{box-sizing:border-box}
   /* Sin zoom por doble toque en el iPhone: al anotar se dan toques rápidos
@@ -143,6 +142,11 @@
   }
   .bar-in{max-width:640px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px}
   .mark{display:flex;align-items:center;gap:8px;margin-right:auto;min-width:0}
+  /* En la portada el nombre va centrado y a la derecha solo compartir. */
+  body.home .bar-in{display:grid;grid-template-columns:38px 1fr 38px;gap:0}
+  body.home .mark{grid-column:2;justify-content:center;text-align:center;margin:0}
+  body.home .mark small{text-align:center}
+  body.home #shareApp{grid-column:3;justify-self:end}
   .ball-dot{
     width:16px;height:16px;border-radius:50%;flex:none;
     background:var(--ball);
@@ -314,6 +318,50 @@
     font-size:18px;line-height:1;padding:4px 2px;
   }
   .clave-x:hover{color:var(--ink)}
+
+  /* ---------- portada de bienvenida ---------- */
+  .hero2{
+    text-align:center;padding:26px 18px 22px;border-radius:var(--r);
+    background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
+  }
+  .hero2-bola{
+    width:54px;height:54px;border-radius:50%;margin:0 auto 16px;position:relative;
+    background:var(--ball);box-shadow:inset 0 0 0 2px var(--ball-strong);
+  }
+  .hero2-bola::after{
+    content:"";position:absolute;inset:7px;border-radius:50%;
+    border:2px solid transparent;border-left-color:var(--card);border-right-color:var(--card);
+    transform:rotate(28deg);
+  }
+  .hero2 h2{
+    font-family:var(--f-display);font-size:clamp(30px,8.5vw,40px);line-height:1;
+    text-transform:uppercase;letter-spacing:.01em;margin:0 0 10px;color:var(--ink);
+    text-wrap:balance;
+  }
+  .hero2 p{
+    margin:0 auto 20px;max-width:30ch;color:var(--muted);font-size:14.5px;line-height:1.45;
+  }
+  .hero2-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}
+  .hero2-chips span{
+    font-family:var(--f-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);background:var(--card-2);border:1px solid var(--line);
+    border-radius:999px;padding:4px 10px;
+  }
+
+  .clave-card{border-color:color-mix(in srgb, var(--brand) 30%, var(--line))}
+
+  .pasos{display:flex;flex-direction:column;gap:14px}
+  .paso{display:flex;gap:12px;align-items:flex-start}
+  .paso-n{
+    flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+    background:var(--ball);color:var(--ball-ink);
+    font-family:var(--f-display);font-size:14px;font-weight:700;
+  }
+  .paso b{
+    display:block;font-family:var(--f-display);font-size:18px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.01em;color:var(--ink);line-height:1.15;
+  }
+  .paso span{display:block;font-size:13.5px;color:var(--muted);line-height:1.4;margin-top:2px}
 
   /* ---------- ajustes ---------- */
   .firma{
@@ -2896,9 +2944,6 @@ var ICONO_ENG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" str
   'a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9' +
   'a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83' +
   'l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>';
-var ICONO_SUBIR = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
-  'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>';
 
 /* La barra de abajo cambia según dónde estés: dentro de un torneo lleva a
    sus pantallas; fuera, sirve para moverse por la app sin perderse. */
@@ -2912,8 +2957,6 @@ function pintarBarra(modo){
     var v = enHome ? (tab === "ajustes" ? "ajustes" : tab === "torneos" ? "torneos" : "inicio") : "";
     h = t("homeIr", "inicio",  "⌂", "Inicio",  v === "inicio") +
         t("homeIr", "torneos", "▤", "Torneos", v === "torneos") +
-        '<a class="tab" id="tabCompartir" target="_blank" rel="noopener">' +
-          '<span class="ic">'+ICONO_SUBIR+'</span><span>Compartir</span></a>' +
         t("irAjustes", null, ICONO_ENG, "Ajustes", v === "ajustes");
   }else{
     h = '<button class="tab tab-inicio" data-act="inicio"><span class="ic">⌂</span><span>Inicio</span></button>' +
@@ -2922,31 +2965,53 @@ function pintarBarra(modo){
         t("verTab", "tabla",  "#",  "Tabla",  tab === "tabla");
   }
   b.innerHTML = h;
-  var c = document.getElementById("tabCompartir");
-  if(c) c.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
+  b.style.gridTemplateColumns = "repeat(" + (modo === "home" ? 3 : 4) + ",1fr)";
 }
 
 /* Portada: crear, entrar con clave, y los torneos guardados aquí. */
 function viewInicio(){
+  var PASOS = [
+    ["Apunta quién juega", "Toca los nombres de siempre. De 4 a 12."],
+    ["El sorteo se hace solo", "Todos juegan con todos, los mismos partidos y los mismos descansos."],
+    ["Anota y comparte", "La tabla se ordena sola y el grupo la ve en vivo desde su móvil."]
+  ];
   return '' +
-  '<div class="stack" style="padding-top:18px">' +
-    '<div class="card box">' +
-      '<h3>Inicio</h3>' +
-      '<p class="hint" style="margin-top:0">Padelito es una app para armar torneos de pádel. Creas uno, ' +
-      'reparte las parejas de cada ronda y lleva la tabla sola. Le pasas la clave a tus amigos y siguen ' +
-      'el marcador en vivo desde su móvil mientras tú anotas. Y si alguien te da una clave, la metes aquí ' +
-      'abajo y entras a ver su torneo. De 4 a 12 jugadores.</p>' +
+  '<div class="stack" style="padding-top:20px">' +
+
+    '<div class="hero2">' +
+      '<div class="hero2-bola" aria-hidden="true"></div>' +
+      '<h2>Arma el torneo<br>en un minuto</h2>' +
+      '<p>Parejas justas, tabla automática y marcador en vivo para todo el grupo.</p>' +
+      '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
+      '<div class="hero2-chips">' +
+        '<span>4 a 12 jugadores</span><span>Sin registro</span><span>Gratis</span>' +
+      '</div>' +
     '</div>' +
-    '<div class="card box">' +
-      '<h3>Entrar a un torneo</h3>' +
+
+    '<div class="card box clave-card">' +
+      '<h3>¿Te pasaron una clave?</h3>' +
       '<div class="row">' +
         '<input class="field grow clave-in" id="claveIn" placeholder="CLAVE" maxlength="5" ' +
           'autocomplete="off" autocapitalize="characters" spellcheck="false" data-act="clave">' +
-        '<button class="btn" data-act="entrar">Entrar</button>' +
+        '<button class="btn btn-primary" data-act="entrar">Entrar</button>' +
       '</div>' +
-      '<p class="hint" id="claveMsg">Pide la clave al organizador. Son 5 caracteres y solo sirve para mirar el marcador.</p>' +
+      '<p class="hint" id="claveMsg">Cinco caracteres. Entras a ver el marcador de ese torneo en vivo.</p>' +
     '</div>' +
-    '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
+
+    '<div class="card box">' +
+      '<h3>Cómo funciona</h3>' +
+      '<div class="pasos">' + PASOS.map(function(p, i){
+        return '<div class="paso">' +
+          '<span class="paso-n">'+(i+1)+'</span>' +
+          '<div><b>'+p[0]+'</b><span>'+p[1]+'</span></div>' +
+        '</div>';
+      }).join("") + '</div>' +
+    '</div>' +
+
+    (DB.tournaments.length
+      ? '<button class="btn btn-wide" data-act="homeIr" data-v="torneos">' +
+          'Mis torneos ('+DB.tournaments.length+')</button>'
+      : '') +
   '</div>';
 }
 
@@ -3036,6 +3101,7 @@ function render(){
       return;
     }
     tabsEl.hidden = false;
+    document.body.classList.remove("home");
     if(tab === "jug") tab = "tabla";
     document.getElementById("shareApp").hidden = true;
     var abr = document.getElementById("ajustesBtn");
@@ -3061,7 +3127,10 @@ function render(){
 
   /* --- portada y borrador: barra general para no perderse --- */
   if(enHome || !S || !S.started){
-    document.getElementById("shareApp").hidden = true;
+    document.body.classList.add("home");
+    var sa = document.getElementById("shareApp");
+    sa.hidden = false;
+    sa.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
     document.getElementById("ajustesBtn").hidden = true;
     tabsEl.hidden = false;
     pintarBarra("home");
@@ -3085,6 +3154,7 @@ function render(){
   }
   syncCourts();
 
+  document.body.classList.remove("home");
   document.getElementById("shareApp").hidden = true;
   var ab = document.getElementById("ajustesBtn");
   ab.hidden = false;
