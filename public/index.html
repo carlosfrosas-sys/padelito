@@ -1769,16 +1769,23 @@ function startTournament(){
   S.started = true;
   S.finished = false;
   S.cur = 0;
+  if(DB.tournaments.indexOf(S) < 0){    // era un borrador: ahora sí se guarda
+    DB.tournaments.push(S);
+    DB.active = DB.tournaments.length - 1;
+    DB.seq++;
+  }
   tab = "ronda";                       // se empieza jugando, no mirando el cuadro
   save(); render();
   // La clave se genera al arrancar: no hay que acordarse de publicar nada.
   if(BACKEND === true && !S.remote) publish();
 }
+/* Borrador: vive solo en memoria. Si te vas al inicio sin empezar, se
+   descarta y la lista de torneos no se ensucia. */
 function newTournament(){
   enHome = false;
-  DB.tournaments.push(freshT(DB.seq++));
-  openT(DB.tournaments.length - 1);
-  save(); render();
+  S = freshT(DB.seq);
+  tab = "ronda";
+  render();
   window.scrollTo({ top:0, behavior:"smooth" });
 }
 function deleteTournament(i){
@@ -2844,7 +2851,11 @@ function viewAjustes(){
   return '' +
   '<div class="stack" style="padding-top:12px">' +
     torneo + compartir + apariencia + idioma + acerca +
-    (enHome ? '<button class="btn btn-wide" data-act="inicio">Inicio</button>' : '') +
+    (enHome
+      ? '<button class="btn btn-wide" data-act="inicio">Inicio</button>'
+      : (!S || !S.started)
+        ? '<button class="btn btn-wide" data-act="volverSetup">Volver</button>'
+        : '') +
   '</div>';
 }
 
@@ -3037,7 +3048,10 @@ function render(){
   document.getElementById("shareApp").hidden = true;
   document.getElementById("ajustesBtn").classList.toggle("on", tab === "ajustes");
 
-  if(!S.started){
+  if(tab === "ajustes"){
+    tabsEl.hidden = !S.started;
+    view.innerHTML = viewAjustes();
+  }else if(!S.started){
     tabsEl.hidden = true;
     view.innerHTML = viewSetup();
   }else{
@@ -3119,6 +3133,7 @@ document.addEventListener("click", function(e){
     enHome = false;
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
   }
+  if(act === "volverSetup"){ tab = "ronda"; render(); window.scrollTo({top:0}); return; }
   if(act === "irAjustes"){ tab = "ajustes"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(act === "tema"){
     DB.theme = el.dataset.v || null;
