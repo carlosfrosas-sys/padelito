@@ -603,6 +603,12 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   .tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+  /* El espectador no tiene inicio: no es su app. */
+  body.ro .tabs-in{grid-template-columns:repeat(3,1fr)}
+  body.ro .tab-inicio{display:none}
+  .tab-inicio .ic{font-size:15px}
+  /* Compartir vive arriba a la derecha, junto al tema. */
+  .theme-btn.on{background:var(--ball);border-color:var(--ball-strong);color:var(--ball-ink)}
   .tab{
     border:0;background:transparent;padding:11px 6px 13px;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);
@@ -688,7 +694,7 @@
         <small id="sub">americano · 0 jugadores</small>
       </div>
     </div>
-    <button class="theme-btn" id="inicio" data-act="inicio" title="Inicio" aria-label="Inicio" hidden>⌂</button>
+    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir" aria-label="Compartir" hidden>↗</button>
     <span class="live" id="live" hidden><i></i><span></span></span>
     <button class="theme-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
   </div>
@@ -699,10 +705,10 @@
 
 <nav class="tabs" id="tabs" hidden>
   <div class="tabs-in" role="tablist">
+    <button class="tab tab-inicio" id="inicio" data-act="inicio"><span class="ic">⌂</span><span>Inicio</span></button>
     <button class="tab" role="tab" data-tab="ronda"><span class="ic">VS</span><span>Ronda</span></button>
     <button class="tab" role="tab" data-tab="cuadro"><span class="ic">▦</span><span>Cuadro</span></button>
     <button class="tab" role="tab" data-tab="tabla"><span class="ic">#</span><span>Tabla</span></button>
-    <button class="tab" role="tab" data-tab="share"><span class="ic">↗</span><span>Compartir</span></button>
   </div>
 </nav>
 
@@ -1161,6 +1167,7 @@ function fmtDur(m){
   var h = Math.floor(m / 60), r = m % 60;
   return (h ? h + " h" + (r ? " " + r : "") : r + " min");
 }
+function nombreFormato(){ return S.format === "mexicano" ? "por nivel" : "americano"; }
 function durLine(){
   var n = goalRounds();
   return n + " rondas · " + S.roundPoints + " puntos por ronda" +
@@ -1488,11 +1495,32 @@ function buildRound(){
      a igualdad, quien lleva más rondas sin parar. Antes el desempate era por
      partidos jugados, pero al sortear el cuadro todavía no hay marcadores:
      valía 0 para todos y el orden lo acababa decidiendo el azar, de ahí que
-     alguien pudiera descansar dos rondas seguidas. */
+     alguien pudiera descansar dos rondas seguidas.
+
+     Por nivel se añade un criterio más: entre los que llevan los mismos
+     descansos y no pararon la ronda pasada, descansa antes quien va ganando.
+     Así el que va arriba juega menos y la cosa se empareja. */
+  /* Cuánto penaliza haber descansado hace poco: 2 si fue la ronda pasada,
+     1 si fue hace dos. Así se mantiene el hueco de dos rondas jugando antes
+     de mirar quién va ganando. */
+  var recien = function(id){
+    if(ultimo[id] === undefined) return 0;
+    var d = ahora - ultimo[id];
+    return d <= 2 ? (3 - d) : 0;
+  };
   var pool = shuffle(act.slice());
-  pool.sort(function(x,y){
-    return (st[x.id].rest - st[y.id].rest) || (sinDescansar(y.id) - sinDescansar(x.id));
-  });
+  if(S.format === "mexicano" && S.rounds.length > 0){
+    pool.sort(function(x,y){
+      return (st[x.id].rest - st[y.id].rest) ||
+             (recien(x.id) - recien(y.id)) ||
+             (st[y.id].pts - st[x.id].pts) ||
+             (sinDescansar(y.id) - sinDescansar(x.id));
+    });
+  }else{
+    pool.sort(function(x,y){
+      return (st[x.id].rest - st[y.id].rest) || (sinDescansar(y.id) - sinDescansar(x.id));
+    });
+  }
   var resting = pool.slice(0, act.length - playCount).map(function(p){ return p.id; });
   var playing = pool.slice(act.length - playCount).map(function(p){ return p.id; });
 
@@ -1845,7 +1873,7 @@ function hojaSpec(){
   txt("PADELITO", PG_M, 8, false, 0.5); baja(19);
   txt(S.name, PG_M, 21, true); baja(15);
   txt(setupLine(), PG_M, 9.5, false, 0.42); baja(11);
-  txt(durLine() + " · " + (S.format === "mexicano" ? "mexicano" : "americano"), PG_M, 9.5, false, 0.42);
+  txt(durLine() + " · " + nombreFormato(), PG_M, 9.5, false, 0.42);
   baja(16);
   cabeceraTabla();
 
@@ -2231,7 +2259,7 @@ function repartoHTML(){
       (parejo ? "todos igual" : "de "+minJ+" a "+maxJ+" partidos")+'</span></h3>' +
     '<div class="repl">'+filas+'</div>' +
     '<p class="hint">'+(S.format === "mexicano"
-      ? "Van " + S.rounds.length + " de " + estRounds() + " rondas. En mexicano el cuadro se forma sobre la marcha, así que estos números crecen ronda a ronda."
+      ? "Van " + S.rounds.length + " de " + estRounds() + " rondas. Por nivel el cuadro se forma sobre la marcha, así que estos números crecen ronda a ronda."
       : parejo
         ? "Nadie sale perjudicado: todos juegan lo mismo y descansan lo mismo."
         : "El torneo no quedó parejo. En verde quien más juega, en rojo quien menos.")+'</p>' +
@@ -2253,7 +2281,7 @@ function viewSetup(){
         '<div class="counter">'+esc(setupLine())+'</div>' +
         (roundsNote() ? '<div class="counter" style="margin-top:3px">'+esc(roundsNote())+'</div>' : '') +
         '<p class="hint" style="margin-top:8px">'+(mex
-          ? "Solo se puede sortear la primera de las "+estRounds()+" rondas. A partir de la segunda se empareja al primero de la tabla con el último, al segundo con el penúltimo, y así: todos los partidos salen igualados."
+          ? "Esta primera ronda es al azar. Las otras "+(estRounds()-1)+" se sortean al cerrar cada una, emparejando al primero de la tabla con el último: así todos los partidos salen igualados."
           : "Nadie repite compañero mientras queden combinaciones nuevas, y el descanso va rotando.")+'</p>' +
       '</div>' +
       S.rounds.map(function(r, ri){ return roundCard(r, ri, false); }).join("") +
@@ -2277,10 +2305,10 @@ function viewSetup(){
         '<div class="opt-full">' +
           '<div class="seg">' +
             '<button data-act="fmt" data-v="americano" aria-pressed="'+(!mex)+'">Americano</button>' +
-            '<button data-act="fmt" data-v="mexicano" aria-pressed="'+mex+'">Mexicano</button>' +
+            '<button data-act="fmt" data-v="mexicano" aria-pressed="'+mex+'">Por nivel</button>' +
           '</div>' +
           '<p class="hint">'+(mex
-            ? "Por nivel: desde la ronda 2 se empareja al 1º con el último, al 2º con el penúltimo… Los equipos quedan igualados y las parejas cambian solas según la tabla."
+            ? "La primera ronda sale al azar. Desde la segunda se empareja al 1º de la tabla con el último, al 2º con el penúltimo… Los equipos quedan igualados y descansan antes los que van ganando."
             : "Rotación: cada ronda juegas con y contra gente distinta.")+'</p>' +
         '</div>' +
         '<div>' +
@@ -2530,7 +2558,7 @@ function viewShare(){
         '<label class="lbl" for="tname">Nombre</label>' +
         '<input class="field" id="tname" value="'+esc(S.name)+'" maxlength="24" data-act="rename" autocomplete="off">' +
         '<div class="counter" style="margin-top:12px">'+esc(setupLine())+'</div>' +
-        '<div class="counter" style="margin-top:3px">'+esc(durLine())+'</div>' +
+        '<div class="counter" style="margin-top:3px">'+esc(durLine())+' · '+esc(nombreFormato())+'</div>' +
         '<button class="btn btn-wide" data-act="'+(S.finished?"reopen":"finish")+'" style="margin-top:14px">' +
           (S.finished ? "Reabrir torneo" : "Cerrar torneo ya") + '</button>' +
         '<p class="hint">Para empezar otro o borrar este, usa las pestañas de arriba del todo.</p>' +
@@ -2653,7 +2681,7 @@ function render(){
     var strip = document.getElementById("tstrip");
     strip.hidden = true;
     strip.innerHTML = "";        // nada de los torneos propios en el DOM
-    document.getElementById("inicio").hidden = true;
+
     if(!roLoaded || !S){
       tabsEl.hidden = true;
       view.innerHTML = viewLoading();
@@ -2661,6 +2689,8 @@ function render(){
     }
     tabsEl.hidden = false;
     if(tab === "jug") tab = "tabla";
+    document.getElementById("shareBtn").hidden = false;
+    document.getElementById("shareBtn").classList.toggle("on", tab === "share");
     syncCourts();
     if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
     var banner = '<div class="viewer" style="margin-top:12px">' +
@@ -2686,14 +2716,17 @@ function render(){
     tabsEl.hidden = true;
     document.getElementById("inicio").hidden = true;
     view.innerHTML = viewHome();
+    document.getElementById("shareBtn").hidden = true;
     document.getElementById("sub").textContent =
       DB.tournaments.length ? DB.tournaments.length + (DB.tournaments.length===1?" torneo guardado":" torneos guardados")
                             : "sorteo y marcador de pádel";
     return;
   }
-  document.getElementById("inicio").hidden = false;
-
   syncCourts();
+
+  var sb = document.getElementById("shareBtn");
+  sb.hidden = !S.started;
+  sb.classList.toggle("on", tab === "share");
 
   if(!S.started){
     tabsEl.hidden = true;
@@ -2777,6 +2810,7 @@ document.addEventListener("click", function(e){
     enHome = false;
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
   }
+  if(act === "irShare"){ tab = "share"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(act === "inicio"){
     enHome = true; RO = false; render(); window.scrollTo({top:0}); return;
   }
