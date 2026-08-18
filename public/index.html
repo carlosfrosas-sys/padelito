@@ -1112,7 +1112,7 @@ function fmtDur(m){
 function durLine(){
   var n = goalRounds();
   return n + " rondas · " + S.roundPoints + " puntos por ronda" +
-    (S.scoring === "partidos" ? " · 2-1-0" : "");
+    (S.scoring === "partidos" ? " · 3-1-0" : "");
 }
 /* Explica el ajuste cuando el número redondo de rondas no reparte bien los descansos. */
 function roundsNote(){
@@ -1153,8 +1153,8 @@ function stats(){
   Object.keys(m).forEach(function(k){
     var e = m[k];
     /* Por puntos: cuenta lo que ganaste en la cancha.
-       Por partidos: 2 al ganar, 1 al empatar, 0 al perder — da igual por cuánto. */
-    e.pts = (S.scoring === "partidos") ? (e.g * 2 + e.e) : e.juego;
+       Por partidos: 3 al ganar, 1 al empatar, 0 al perder — da igual por cuánto. */
+    e.pts = (S.scoring === "partidos") ? (e.g * 3 + e.e) : e.juego;
     e.prom = e.pj ? e.pts / e.pj : 0;   // solo desempata si alguien jugó menos
   });
   return m;
@@ -2192,7 +2192,7 @@ function viewSetup(){
             '<button data-act="scoring" data-v="partidos" aria-pressed="'+(S.scoring==="partidos")+'">Por partidos</button>' +
           '</div>' +
           '<p class="hint">'+(S.scoring==="partidos"
-            ? "Ganar vale 2, empatar 1, perder 0. Da igual si ganas "+S.roundPoints+"-0 o "+(S.roundPoints/2+1)+"-"+(S.roundPoints/2-1)+". Si hay empate a puntos, sube quien más puntos hizo en la cancha."
+            ? "Ganar vale 3, empatar 1, perder 0. Da igual si ganas "+S.roundPoints+"-0 o "+(S.roundPoints/2+1)+"-"+(S.roundPoints/2-1)+". Si hay empate a puntos, sube quien más puntos hizo en la cancha."
             : "Cada pareja se lleva los puntos que gana. Ganar "+S.roundPoints+"-0 vale más que ganar "+(S.roundPoints/2+1)+"-"+(S.roundPoints/2-1)+".")+'</p>' +
         '</div>' +
       '</div>' +
@@ -2368,7 +2368,7 @@ function viewTabla(){
       '<tbody>'+rows+'</tbody>' +
     '</table></div></div>' +
     '<p class="hint">'+(S.scoring==="partidos"
-      ? "Pts: 2 por ganar, 1 por empatar · G/E/P: ganados, empatados, perdidos · Juego: puntos hechos en la cancha, que desempatan."
+      ? "Pts: 3 por ganar, 1 por empatar · G/E/P: ganados, empatados, perdidos · Juego: puntos hechos en la cancha, que desempatan."
       : "Pts: puntos ganados · G: partidos ganados · E: empatados · P: perdidos. Con los mismos puntos, sube quien ganó más partidos.")+'</p>' +
   '</div>';
 }
