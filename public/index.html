@@ -710,7 +710,8 @@
         <small id="sub">americano · 0 jugadores</small>
       </div>
     </div>
-    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir" aria-label="Compartir" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></button>
+    <a class="theme-btn" id="shareApp" target="_blank" rel="noopener" title="Pasar la app por WhatsApp" aria-label="Pasar la app por WhatsApp" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></a>
+    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir el torneo" aria-label="Compartir el torneo" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></button>
     <span class="live" id="live" hidden><i></i><span></span></span>
     <button class="theme-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
   </div>
@@ -938,16 +939,19 @@ function mensajeDe(t){
     "\n\nSigue el marcador en vivo:\n" + location.origin + "/t/" + t.remote.slug;
 }
 function mensajeGrupo(){ return mensajeDe(S); }
+function mensajeResultados(){
+  return "🎾 " + S.name +
+    (S.remote ? "\nClave: " + S.remote.slug : "") +
+    "\n\nRESULTADOS\n" +
+    (S.remote ? "\n" + publicLink() : "");
+}
 function mensajeApp(){
   return "🎾 Padelito\nSorteo de parejas y marcador en vivo para pádel." +
     "\n\n" + location.origin;
 }
 function enlaceWhatsapp(){ return "https://wa.me/?text=" + encodeURIComponent(mensajeGrupo()); }
-function abrirWhatsapp(txt){
-  var url = "https://wa.me/?text=" + encodeURIComponent(txt), win = null;
-  try{ win = window.open(url, "_blank", "noopener"); }catch(e){}
-  if(!win) location.href = url;
-}
+/* Se comparte siempre con enlaces normales, nunca con window.open: dentro
+   de la app instalada eso deja una ventana en blanco al volver. */
 
 function setLive(st){
   var el = document.getElementById("live");
@@ -1808,7 +1812,6 @@ function textoCuadro(){
   });
   return lines.join("\n") + pieEnlace();
 }
-function waLink(txt){ return "https://wa.me/?text=" + encodeURIComponent(txt); }
 function copyTable(){ copy(textoTabla(), "Tabla copiada"); }
 function copyDraw(){ copy(textoCuadro(), "Cuadro copiado"); }
 function copy(txt, ok){
@@ -2176,8 +2179,7 @@ function compartirTabla(){
     var file = null;
     try{ file = new File([png], nombre, { type:"image/png" }); }catch(e){}
     if(file && navigator.canShare && navigator.canShare({ files:[file] })){
-      navigator.share({ files:[file], title:S.name,
-                        text: S.remote ? mensajeGrupo() : S.name })
+      navigator.share({ files:[file], title:S.name, text: mensajeResultados() })
         .catch(function(err){ if(!err || err.name !== "AbortError") descargar(png, nombre); });
       return;
     }
@@ -2606,8 +2608,7 @@ function viewCuadro(){
     '</div>' +
     repartoHTML() +
     '<div class="row" style="gap:10px">' +
-      '<a class="btn btn-wa grow" href="'+esc(waLink(textoCuadro()))+'" target="_blank" rel="noopener">WhatsApp</a>' +
-      '<button class="btn btn-primary grow" data-act="sheet">Hoja PDF</button>' +
+      '<button class="btn btn-primary btn-wide" data-act="sheet">Hoja PDF</button>' +
     '</div>' +
   '</div>';
 }
@@ -2674,10 +2675,8 @@ function viewTabla(){
       ? "Pts: 3 por ganar, 1 por empatar · G/E/P: ganados, empatados, perdidos · Juego: puntos hechos en la cancha, que desempatan."
       : "Pts: puntos ganados · G: partidos ganados · E: empatados · P: perdidos. Con los mismos puntos, sube quien ganó más partidos.")+'</p>' +
 
-    '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoTabla()))+'" target="_blank" rel="noopener">' +
-      'Mandar tabla por WhatsApp</a>' +
-    '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla como imagen</button>' +
-    '<p class="hint" style="margin-top:-4px">La imagen sale a color y se ve en el chat sin abrir nada.</p>' +
+    '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla</button>' +
+    '<p class="hint" style="margin-top:-4px">Va como imagen a color, se ve en el chat sin abrir nada.</p>' +
   '</div>';
 }
 
@@ -2687,11 +2686,8 @@ function viewShare(){
 
     '<div class="card box">' +
       '<h3>Mandar al grupo</h3>' +
-      '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoTabla()))+'" target="_blank" rel="noopener">' +
-        'Mandar tabla por WhatsApp</a>' +
-      '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoCuadro()))+'" target="_blank" rel="noopener" style="margin-top:10px">' +
-        'Mandar cuadro por WhatsApp</a>' +
-      '<p class="hint">Van como texto, se leen en el chat sin abrir nada.</p>' +
+      '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla</button>' +
+      '<p class="hint">La tabla como imagen a color, se ve en el chat sin abrir nada.</p>' +
       '<button class="btn btn-primary btn-wide" data-act="sheet" style="margin-top:14px">Mandar hoja PDF</button>' +
       '<p class="hint">La hoja completa con cuadro, marcadores y tabla. Al ser un archivo, el iPhone abre la ventana de compartir y ahí eliges WhatsApp.</p>' +
       '<div class="row" style="gap:10px;margin-top:12px">' +
@@ -2847,6 +2843,7 @@ function render(){
     }
     tabsEl.hidden = false;
     if(tab === "jug") tab = "tabla";
+    document.getElementById("shareApp").hidden = true;
     document.getElementById("shareBtn").hidden = false;
     document.getElementById("shareBtn").classList.toggle("on", tab === "share");
     syncCourts();
@@ -2874,11 +2871,10 @@ function render(){
     tabsEl.hidden = true;
     document.getElementById("inicio").hidden = true;
     view.innerHTML = viewHome();
-    var sbh = document.getElementById("shareBtn");
-    sbh.hidden = false;
-    sbh.classList.remove("on");
-    sbh.title = "Pasar la app por WhatsApp";
-    sbh.setAttribute("aria-label", "Pasar la app por WhatsApp");
+    document.getElementById("shareBtn").hidden = true;
+    var sa = document.getElementById("shareApp");
+    sa.hidden = false;
+    sa.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
     document.getElementById("sub").textContent =
       DB.tournaments.length ? DB.tournaments.length + (DB.tournaments.length===1?" torneo guardado":" torneos guardados")
                             : "sorteo y marcador de pádel";
@@ -2886,11 +2882,10 @@ function render(){
   }
   syncCourts();
 
+  document.getElementById("shareApp").hidden = true;
   var sb = document.getElementById("shareBtn");
   sb.hidden = !S.started;
   sb.classList.toggle("on", tab === "share");
-  sb.title = "Compartir el torneo";
-  sb.setAttribute("aria-label", "Compartir el torneo");
 
   if(!S.started){
     tabsEl.hidden = true;
@@ -2974,11 +2969,7 @@ document.addEventListener("click", function(e){
     enHome = false;
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
   }
-  if(act === "irShare"){
-    if(enHome){ abrirWhatsapp(mensajeApp()); return; }   // en la portada se comparte la app
-    tab = "share"; render(); window.scrollTo({top:0,behavior:"smooth"});
-    return;
-  }
+  if(act === "irShare"){ tab = "share"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(act === "inicio"){
     enHome = true; RO = false; render(); window.scrollTo({top:0}); return;
   }
