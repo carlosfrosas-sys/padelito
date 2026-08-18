@@ -278,9 +278,9 @@
     background:var(--card);
   }
   .field::placeholder{color:var(--muted)}
-  label.lbl{
+  label.lbl,.lbl{
     display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;
-    text-transform:uppercase;color:var(--muted);margin:0 0 6px 2px;
+    text-transform:uppercase;color:var(--brand);opacity:.85;margin:0 0 6px 2px;
   }
 
   /* ---------- clave del torneo ---------- */
@@ -316,6 +316,43 @@
   .clave-x:hover{color:var(--ink)}
 
   /* ---------- ajustes ---------- */
+  .firma{
+    padding:26px 20px 24px;text-align:center;
+    background:var(--brand-wash);
+    border:1px solid color-mix(in srgb, var(--brand) 26%, var(--line));
+  }
+  .firma-bola{
+    width:46px;height:46px;border-radius:50%;margin:0 auto 12px;position:relative;
+    background:var(--ball);box-shadow:inset 0 0 0 2px var(--ball-strong);
+  }
+  .firma-bola::after{
+    content:"";position:absolute;inset:6px;border-radius:50%;
+    border:2px solid transparent;border-left-color:var(--card);border-right-color:var(--card);
+    transform:rotate(28deg);
+  }
+  .firma-app{
+    font-family:var(--f-display);font-size:30px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--brand);line-height:1;
+  }
+  .firma-ver{
+    display:inline-block;margin-top:9px;padding:3px 11px;border-radius:999px;
+    background:var(--card);border:1px solid color-mix(in srgb, var(--brand) 26%, var(--line));
+    font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);
+  }
+  .firma-sep{
+    width:44px;height:2px;margin:20px auto 16px;border-radius:2px;background:var(--ball);
+  }
+  .firma-lbl{
+    font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  .firma-yo{
+    font-family:var(--f-display);font-size:27px;font-weight:700;letter-spacing:.02em;
+    text-transform:uppercase;color:var(--ink);margin-top:5px;line-height:1.05;
+  }
+  .firma-pie{
+    margin-top:16px;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);
+  }
   .colores{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .col-op{
     border:1px solid var(--line);background:var(--card);border-radius:11px;cursor:pointer;
@@ -2791,13 +2828,16 @@ function viewAjustes(){
     '</div>';
 
   var acerca =
-    '<div class="card box">' +
-      '<h3>Padelito<span class="side-note">versión '+VERSION+'</span></h3>' +
-      '<div class="counter">Sorteo de parejas y marcador en vivo para pádel.</div>' +
-      '<div class="counter" style="margin-top:6px">Creada por Carlos Rosas.</div>' +
+    '<div class="card firma">' +
+      '<div class="firma-bola" aria-hidden="true"></div>' +
+      '<div class="firma-app">Padelito</div>' +
+      '<div class="firma-ver">versión '+VERSION+'</div>' +
+      '<div class="firma-sep"></div>' +
+      '<div class="firma-lbl">Creada por</div>' +
+      '<div class="firma-yo">Carlos Rosas</div>' +
       (DB.tournaments.length
-        ? '<div class="counter" style="margin-top:6px">'+DB.tournaments.length+
-          (DB.tournaments.length===1?" torneo guardado":" torneos guardados")+' en este teléfono.</div>'
+        ? '<div class="firma-pie">'+DB.tournaments.length+
+          (DB.tournaments.length===1?" torneo guardado":" torneos guardados")+' en este teléfono</div>'
         : '') +
     '</div>';
 
@@ -2868,10 +2908,11 @@ function viewHome(){
   '<div class="stack" style="padding-top:18px">' +
 
     '<div class="card box">' +
-      '<h3>Qué hace</h3>' +
-      '<p class="hint" style="margin-top:0">Arma las parejas de un americano de pádel para que todos jueguen ' +
-      'con todos y descansen lo mismo, lleva la tabla ronda a ronda y comparte el marcador en vivo con el ' +
-      'grupo. De 4 a 12 jugadores.</p>' +
+      '<h3>Inicio</h3>' +
+      '<p class="hint" style="margin-top:0">Padelito es una app para armar torneos de pádel. Creas uno, ' +
+      'reparte las parejas de cada ronda y lleva la tabla sola. Le pasas la clave a tus amigos y siguen ' +
+      'el marcador en vivo desde su móvil mientras tú anotas. Y si alguien te da una clave, la metes aquí ' +
+      'abajo y entras a ver su torneo. De 4 a 12 jugadores.</p>' +
     '</div>' +
 
     '<div class="card box">' +
