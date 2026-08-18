@@ -915,9 +915,7 @@ function mensajeGrupo(){
   return "🎾 " + S.name + "\nClave: " + S.remote.slug +
     "\n\nSigue el marcador en vivo:\n" + publicLink();
 }
-function enlaceWhatsapp(){
-  return "https://wa.me/?text=" + encodeURIComponent(mensajeGrupo());
-}
+function enlaceWhatsapp(){ return "https://wa.me/?text=" + encodeURIComponent(mensajeGrupo()); }
 
 function setLive(st){
   var el = document.getElementById("live");
@@ -1681,19 +1679,25 @@ function bump(mi, side, d){
 function sumaMal(m){
   return m.sa !== null && m.sb !== null && (m.sa + m.sb) !== S.roundPoints;
 }
-function copyTable(){
+/* Si el torneo está publicado, todo lo que se manda lleva la clave y el
+   enlace al final, para que quien lo reciba pueda seguirlo en vivo. */
+function pieEnlace(){
+  return S.remote ? "\n\nClave " + S.remote.slug + " · marcador en vivo:\n" + publicLink() : "";
+}
+function textoTabla(){
   var rk = ranking();
-  var lines = [S.name + " — ronda " + S.rounds.length];
+  var lines = ["🎾 " + S.name + " — tabla tras " +
+    S.rounds.filter(roundDone).length + " de " + S.rounds.length + " rondas"];
   var w = 0;
   rk.forEach(function(r){ w = Math.max(w, r.p.name.length); });
   rk.forEach(function(r, i){
     lines.push(String(i+1).padStart(2," ") + ". " + r.p.name.padEnd(w+1," ") +
-      String(r.pts).padStart(4," ") + " pts  (" + r.pj + " PJ · " + r.g + " G)");
+      String(r.pts).padStart(4," ") + " pts  (" + r.g + "G " + r.e + "E " + r.l + "P)");
   });
-  copy(lines.join("\n"), "Tabla copiada");
+  return lines.join("\n") + pieEnlace();
 }
-function copyDraw(){
-  var lines = [S.name + " — cuadro (" + S.rounds.length + " rondas)"];
+function textoCuadro(){
+  var lines = ["🎾 " + S.name + " — cuadro de " + S.rounds.length + " rondas"];
   S.rounds.forEach(function(r, ri){
     lines.push("");
     lines.push("RONDA " + (ri+1));
@@ -1705,8 +1709,11 @@ function copyDraw(){
     if(r.rest.length) lines.push("  Descansa" + (r.rest.length===1?": ":"n: ") +
       r.rest.map(nameOf).join(", "));
   });
-  copy(lines.join("\n"), "Cuadro copiado");
+  return lines.join("\n") + pieEnlace();
 }
+function waLink(txt){ return "https://wa.me/?text=" + encodeURIComponent(txt); }
+function copyTable(){ copy(textoTabla(), "Tabla copiada"); }
+function copyDraw(){ copy(textoCuadro(), "Cuadro copiado"); }
 function copy(txt, ok){
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(function(){ toast(ok); }, function(){ toast("No se pudo copiar"); });
@@ -1996,7 +2003,8 @@ function compartirHoja(){
     var file = null;
     try{ file = new File([pdf], nombre + ".pdf", { type: "application/pdf" }); }catch(e){}
     if(file && navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: S.name })
+      navigator.share({ files: [file], title: S.name,
+                        text: S.remote ? mensajeGrupo() : S.name })
         .catch(function(err){ if(!err || err.name !== "AbortError") descargar(pdf, nombre + ".pdf"); });
       return;
     }
@@ -2371,7 +2379,7 @@ function viewCuadro(){
     S.rounds.map(function(r, ri){ return roundCard(r, ri, true); }).join("") +
     repartoHTML() +
     '<div class="row" style="gap:10px">' +
-      '<button class="btn grow" data-act="copyDraw">Copiar cuadro</button>' +
+      '<a class="btn btn-wa grow" href="'+esc(waLink(textoCuadro()))+'" target="_blank" rel="noopener">WhatsApp</a>' +
       '<button class="btn btn-primary grow" data-act="sheet">Hoja PDF</button>' +
     '</div>' +
   '</div>';
@@ -2447,13 +2455,17 @@ function viewShare(){
 
     '<div class="card box">' +
       '<h3>Mandar al grupo</h3>' +
-      '<button class="btn btn-primary btn-wide" data-act="sheet">Hoja PDF con todo</button>' +
-      '<p class="hint">Cuadro completo, marcadores y tabla. En el iPhone se abre la hoja de compartir con WhatsApp dentro.</p>' +
+      '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoTabla()))+'" target="_blank" rel="noopener">' +
+        'Mandar tabla por WhatsApp</a>' +
+      '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoCuadro()))+'" target="_blank" rel="noopener" style="margin-top:10px">' +
+        'Mandar cuadro por WhatsApp</a>' +
+      '<p class="hint">Van como texto, se leen en el chat sin abrir nada.</p>' +
+      '<button class="btn btn-primary btn-wide" data-act="sheet" style="margin-top:14px">Mandar hoja PDF</button>' +
+      '<p class="hint">La hoja completa con cuadro, marcadores y tabla. Al ser un archivo, el iPhone abre la ventana de compartir y ahí eliges WhatsApp.</p>' +
       '<div class="row" style="gap:10px;margin-top:12px">' +
-        '<button class="btn grow" data-act="copy">Copiar tabla</button>' +
-        '<button class="btn grow" data-act="copyDraw">Copiar cuadro</button>' +
+        '<button class="btn btn-ghost btn-sm grow" data-act="copy">Copiar tabla</button>' +
+        '<button class="btn btn-ghost btn-sm grow" data-act="copyDraw">Copiar cuadro</button>' +
       '</div>' +
-      '<p class="hint">Como texto, para pegarlo directamente en el chat.</p>' +
     '</div>' +
 
     (RO ? '' : shareCard()) +
