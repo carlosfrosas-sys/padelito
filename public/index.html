@@ -1708,13 +1708,11 @@ function nextRound(){
 function roundDoneAny(r){ return r.matches.some(function(m){ return m.sa !== null || m.sb !== null; }); }
 
 /* El torneo se cierra solo al completar la última ronda prevista. */
-function checkFinish(){
-  if(S.finished) return false;
-  if(S.rounds.length >= estRounds() && S.rounds.length > 0 && S.rounds.every(roundDone)){
-    S.finished = true;
-    return true;
-  }
-  return false;
+/* Están jugadas todas las rondas previstas y anotadas todas. No cierra el
+   torneo por su cuenta: para eso hay un botón, porque cerrarlo mientras
+   todavía estás tecleando el último marcador es una faena. */
+function torneoCompleto(){
+  return S.rounds.length >= estRounds() && S.rounds.length > 0 && S.rounds.every(roundDone);
 }
 
 function redrawAll(){
@@ -1747,10 +1745,7 @@ function bump(mi, side, d){
   var cur = (side === "a" ? m.sa : m.sb);
   if(cur === null) cur = 0;
   setScore(mi, side, Math.max(0, Math.min(S.roundPoints, cur + d)));
-  var fin = checkFinish();
-  if(fin){ save(); tab = "tabla"; }
   render();
-  if(fin) toast("¡Torneo concluido!");
 }
 function sumaMal(m){
   return m.sa !== null && m.sb !== null && (m.sa + m.sb) !== S.roundPoints;
@@ -2416,6 +2411,8 @@ function viewRonda(){
     action = '<button class="btn btn-primary btn-wide" data-act="next"'+(done?"":" disabled")+'>' +
       (done ? "Sortear ronda " + (S.rounds.length + 1) + " de " + estRounds()
             : "Completa los marcadores") + '</button>';
+  }else if(isLast && torneoCompleto()){
+    action = '<button class="btn btn-primary btn-wide" data-act="finalizar">Finalizado · ver quién ganó</button>';
   }else if(isLast){
     action = '<button class="btn btn-wide" id="lastBtn" disabled>'+lastBtnLabel()+'</button>';
   }else{
@@ -2850,7 +2847,12 @@ document.addEventListener("click", function(e){
   if(act === "bump"){ bump(+el.dataset.m, el.dataset.s, +el.dataset.d); return; }
 
   if(act === "goTabla"){ tab = "tabla"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
-  if(act === "finish"){ S.finished = true; save(); render(); return; }
+  if(act === "finalizar"){
+    S.finished = true; tab = "tabla"; save(); render();
+    window.scrollTo({ top:0, behavior:"smooth" });
+    return;
+  }
+  if(act === "finish"){ S.finished = true; tab = "tabla"; save(); render(); return; }
   if(act === "reopen"){ S.finished = false; save(); render(); return; }
   if(act === "copy"){ copyTable(); return; }
   if(act === "copyDraw"){ copyDraw(); return; }
@@ -2877,10 +2879,7 @@ document.addEventListener("input", function(e){
     setScore(+el.dataset.m, el.dataset.s, el.value);
     // Repintado completo: el otro marcador, el ganador, la cabecera, el cuadro
     // y la tabla quedan al día. El foco vuelve solo a la casilla.
-    var fin = checkFinish();
-    if(fin){ save(); tab = "tabla"; }
     render();
-    if(fin) toast("¡Torneo concluido!");
     return;
   }
 
