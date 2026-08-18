@@ -851,7 +851,7 @@ function openT(i){
 var PROHIBIDO_MIRANDO = {
   add:1, del:1, fmt:1, start:1, redraw:1, prev:1, nextR:1, goto:1, bump:1,
   finish:1, reopen:1, newT:1, delT:1, switchT:1, publish:1, unpublish:1,
-  rtoggle:1, rdel:1, rall:1, rnone:1, redit:1
+  rtoggle:1, rdel:1, rall:1, rnone:1, redit:1, next:1
 };
 var soyDueno = -1;              // índice del torneo local si tengo la clave
 var enHome = true;              // se decide al arrancar, más abajo
@@ -1420,15 +1420,53 @@ function equilibrarCanchas(rounds){
   }
   return rounds;
 }
-function arrangeMexicano(playing, pc, oc){
+/* Todas las formas de agrupar una lista de dos en dos. Con 4 parejas salen
+   3 combinaciones y con 6 salen 15: se pueden probar todas. */
+function agruparDeDos(lista){
+  if(lista.length < 2) return [[]];
+  var out = [], a = lista[0];
+  for(var i = 1; i < lista.length; i++){
+    var resto = lista.slice(1, i).concat(lista.slice(i + 1));
+    agruparDeDos(resto).forEach(function(r){ out.push([[a, lista[i]]].concat(r)); });
+  }
+  return out;
+}
+
+/* Mexicano: se ordena por la tabla y se empareja al primero con el último,
+   al segundo con el penúltimo, y así. Cada pareja suma lo mismo, de modo que
+   todos los partidos quedan igualados por nivel. Como la tabla cambia cada
+   ronda, las parejas van saliendo distintas solas. */
+function arrangeMexicano(playing, pc, oc, cc){
   var rank = ranking().filter(function(r){ return playing.indexOf(r.p.id) >= 0; })
                       .map(function(r){ return r.p.id; });
-  var groups = [];
-  for(var i=0;i<rank.length;i+=4){
-    var r = bestSplit(rank.slice(i, i+4), pc, oc, 2); // 1º&4º vs 2º&3º
-    groups.push({ a:r.a, b:r.b });
-  }
-  return groups;
+
+  var parejas = [];
+  for(var i = 0, j = rank.length - 1; i < j; i++, j--) parejas.push([rank[i], rank[j]]);
+
+  // Las parejas están fijadas por la tabla; lo que se elige es quién juega
+  // contra quién, evitando repetir rivales y repartiendo las canchas.
+  var mejor = null, mc = Infinity;
+  agruparDeDos(parejas).forEach(function(comb){
+    var groups = comb.map(function(par){ return { a:par[0], b:par[1] }; });
+    var c = 0;
+    groups.forEach(function(g){
+      for(var x = 0; x < 2; x++) for(var y = 0; y < 2; y++){
+        var o = oc[key2(g.a[x], g.b[y])] || 0;
+        c += 14 * o * o;
+      }
+    });
+    var rp = mejorReparto(groups, cc);
+    c += rp.coste;
+    if(c < mc){
+      mc = c;
+      if(rp.perm){
+        var out = [];
+        for(var gi = 0; gi < groups.length; gi++) out[rp.perm[gi]] = groups[gi];
+        mejor = out;
+      }else mejor = groups;
+    }
+  });
+  return mejor;
 }
 function buildRound(){
   var act = actives();
@@ -1462,7 +1500,7 @@ function buildRound(){
   // En mexicano la cancha 1 es la de los que van ganando: ahí no se reparte.
   var groups;
   if(S.format === "mexicano" && S.rounds.length > 0){
-    groups = arrangeMexicano(playing, h.pc, h.oc);   // cancha 1 = los que van ganando
+    groups = arrangeMexicano(playing, h.pc, h.oc, courtHistory());
   }else{
     groups = arrangeRandom(playing, h.pc, h.oc, courtHistory());
   }
@@ -1629,12 +1667,22 @@ function deleteTournament(i){
     }
   });
 }
+/* Solo en mexicano: la ronda siguiente depende de cómo quedó la tabla, así
+   que se sortea al cerrar la anterior en vez de tenerlo todo hecho. */
+function nextRound(){
+  if(S.rounds.length >= estRounds()){ toast("Ya se jugaron las rondas previstas"); return; }
+  S.rounds.push(buildRound());
+  S.cur = S.rounds.length - 1;
+  tab = "ronda";
+  save(); render();
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
 function roundDoneAny(r){ return r.matches.some(function(m){ return m.sa !== null || m.sb !== null; }); }
 
 /* El torneo se cierra solo al completar la última ronda prevista. */
 function checkFinish(){
   if(S.finished) return false;
-  if(S.rounds.length > 0 && S.rounds.every(roundDone)){
+  if(S.rounds.length >= estRounds() && S.rounds.length > 0 && S.rounds.every(roundDone)){
     S.finished = true;
     return true;
   }
@@ -2182,10 +2230,12 @@ function repartoHTML(){
       '<span class="side-note">'+
       (parejo ? "todos igual" : "de "+minJ+" a "+maxJ+" partidos")+'</span></h3>' +
     '<div class="repl">'+filas+'</div>' +
-    '<p class="hint">'+(parejo
-      ? "Nadie sale perjudicado: todos juegan lo mismo y descansan lo mismo."
-      : "El torneo no quedó parejo. En verde quien más juega, en rojo quien menos.")+'</p>' +
-    '<p class="hint">'+esc(notaComp)+'</p>' +
+    '<p class="hint">'+(S.format === "mexicano"
+      ? "Van " + S.rounds.length + " de " + estRounds() + " rondas. En mexicano el cuadro se forma sobre la marcha, así que estos números crecen ronda a ronda."
+      : parejo
+        ? "Nadie sale perjudicado: todos juegan lo mismo y descansan lo mismo."
+        : "El torneo no quedó parejo. En verde quien más juega, en rojo quien menos.")+'</p>' +
+    (S.format === "mexicano" ? '' : '<p class="hint">'+esc(notaComp)+'</p>') +
   '</div>';
 }
 /* ============ vistas ============ */
@@ -2203,7 +2253,7 @@ function viewSetup(){
         '<div class="counter">'+esc(setupLine())+'</div>' +
         (roundsNote() ? '<div class="counter" style="margin-top:3px">'+esc(roundsNote())+'</div>' : '') +
         '<p class="hint" style="margin-top:8px">'+(mex
-          ? "En mexicano solo se puede saber la primera ronda de las "+estRounds()+" previstas: a partir de la segunda los emparejamientos dependen de la tabla."
+          ? "Solo se puede sortear la primera de las "+estRounds()+" rondas. A partir de la segunda se empareja al primero de la tabla con el último, al segundo con el penúltimo, y así: todos los partidos salen igualados."
           : "Nadie repite compañero mientras queden combinaciones nuevas, y el descanso va rotando.")+'</p>' +
       '</div>' +
       S.rounds.map(function(r, ri){ return roundCard(r, ri, false); }).join("") +
@@ -2230,7 +2280,7 @@ function viewSetup(){
             '<button data-act="fmt" data-v="mexicano" aria-pressed="'+mex+'">Mexicano</button>' +
           '</div>' +
           '<p class="hint">'+(mex
-            ? "Por nivel: desde la ronda 2, los que van 1º–4º juegan juntos, los 5º–8º entre sí, y así."
+            ? "Por nivel: desde la ronda 2 se empareja al 1º con el último, al 2º con el penúltimo… Los equipos quedan igualados y las parejas cambian solas según la tabla."
             : "Rotación: cada ronda juegas con y contra gente distinta.")+'</p>' +
         '</div>' +
         '<div>' +
@@ -2334,6 +2384,10 @@ function viewRonda(){
     action = "";
   }else if(S.finished){
     action = '<button class="btn btn-primary btn-wide" data-act="goTabla">Torneo concluido · ver la tabla</button>';
+  }else if(isLast && S.format === "mexicano" && S.rounds.length < estRounds()){
+    action = '<button class="btn btn-primary btn-wide" data-act="next"'+(done?"":" disabled")+'>' +
+      (done ? "Sortear ronda " + (S.rounds.length + 1) + " de " + estRounds()
+            : "Completa los marcadores") + '</button>';
   }else if(isLast){
     action = '<button class="btn btn-wide" id="lastBtn" disabled>'+lastBtnLabel()+'</button>';
   }else{
@@ -2757,6 +2811,7 @@ document.addEventListener("click", function(e){
 
   if(act === "prev"){ S.cur = Math.max(0, S.cur - 1); save(); render(); return; }
   if(act === "nextR"){ S.cur = Math.min(S.rounds.length - 1, S.cur + 1); save(); render(); return; }
+  if(act === "next"){ nextRound(); return; }
   if(act === "goto"){ S.cur = +el.dataset.r; tab = "ronda"; save(); render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(act === "bump"){ bump(+el.dataset.m, el.dataset.s, +el.dataset.d); return; }
 
