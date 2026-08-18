@@ -97,6 +97,20 @@
     --shadow:0 1px 1px rgba(0,0,0,.5), 0 14px 30px -18px rgba(0,0,0,.9);
   }
 
+  /* Colores de acento. Lima es el de siempre y no necesita bloque. */
+  :root[data-accent="azul"]{--ball:#1D6FA5;--ball-strong:#175C89;--ball-ink:#FFFFFF;--ball-wash:#DCEBF5}
+  :root[data-accent="naranja"]{--ball:#A64F06;--ball-strong:#8E4404;--ball-ink:#FFFFFF;--ball-wash:#FAE6D3}
+  :root[data-accent="rosa"]{--ball:#B32F70;--ball-strong:#95265B;--ball-ink:#FFFFFF;--ball-wash:#FADEEB}
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"])[data-accent="azul"]{--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
+    :root:not([data-theme="light"])[data-accent="naranja"]{--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
+    :root:not([data-theme="light"])[data-accent="rosa"]{--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+  }
+  :root[data-theme="dark"][data-accent="azul"]{--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
+  :root[data-theme="dark"][data-accent="naranja"]{--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
+  :root[data-theme="dark"][data-accent="rosa"]{--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+
   *{box-sizing:border-box}
   /* Sin zoom por doble toque en el iPhone: al anotar se dan toques rápidos
      y Safari lo interpretaba como acercar. El pellizco para ampliar sigue. */
@@ -300,6 +314,22 @@
     font-size:18px;line-height:1;padding:4px 2px;
   }
   .clave-x:hover{color:var(--ink)}
+
+  /* ---------- ajustes ---------- */
+  .colores{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .col-op{
+    border:1px solid var(--line);background:var(--card);border-radius:11px;cursor:pointer;
+    padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:5px;
+    font-family:var(--f-mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  .col-op i{width:22px;height:22px;border-radius:50%;display:block}
+  .col-op[data-c="lima"] i{background:#C9E22B;box-shadow:inset 0 0 0 1px #B6CE1E}
+  .col-op[data-c="azul"] i{background:#1D6FA5}
+  .col-op[data-c="naranja"] i{background:#C2600F}
+  .col-op[data-c="rosa"] i{background:#B32F70}
+  .col-op.on{border-color:var(--ink);color:var(--ink)}
+  .col-op:hover{border-color:var(--muted)}
 
   /* ---------- portada ---------- */
   .clave-in{
@@ -711,9 +741,9 @@
       </div>
     </div>
     <a class="theme-btn" id="shareApp" target="_blank" rel="noopener" title="Pasar la app por WhatsApp" aria-label="Pasar la app por WhatsApp" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></a>
-    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir el torneo" aria-label="Compartir el torneo" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></button>
+    <button class="theme-btn" id="ajustesBtn" data-act="irAjustes" title="Ajustes" aria-label="Ajustes"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg></button>
     <span class="live" id="live" hidden><i></i><span></span></span>
-    <button class="theme-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+
   </div>
   <div class="tstrip" id="tstrip"></div>
 </header>
@@ -750,6 +780,7 @@
    Estado. DB guarda todos los torneos; S es el torneo abierto.
    ============================================================ */
 var LS = "puntodeoro.v1";
+var VERSION = "1.0";
 
 /* Los de siempre. Se pueden quitar y añadir desde la app. */
 var DEFAULT_ROSTER = ["Freddy","Panza","CB9","Juan","Hotch","Pecas","Rafa","Mau","Richi","Diego","Steve","Leo"];
@@ -790,8 +821,8 @@ function freshT(n){
   };
 }
 function freshDB(){
-  return { v:2, seq:1, active:0, theme:null, roster:DEFAULT_ROSTER.slice(),
-           tournaments:[], seguidos:[] };
+  return { v:2, seq:1, active:0, theme:null, accent:"lima", escala:1,
+           roster:DEFAULT_ROSTER.slice(), tournaments:[], seguidos:[] };
 }
 
 function load(){
@@ -855,6 +886,14 @@ function normalizeT(t){
 function save(){
   try{ localStorage.setItem(LS, JSON.stringify(DB)); }catch(e){}
   if(!RO && S && S.remote) push(false);
+}
+/* Apariencia: tema, color de acento y tamaño de letra. */
+function aplicarApariencia(){
+  var r = document.documentElement;
+  if(DB.theme) r.setAttribute("data-theme", DB.theme); else r.removeAttribute("data-theme");
+  r.setAttribute("data-accent", DB.accent || "lima");
+  var v = document.getElementById("view");
+  if(v) v.style.zoom = (DB.escala && DB.escala !== 1) ? DB.escala : "";
 }
 function openT(i){
   if(!DB.tournaments.length){ DB.active = 0; S = null; enHome = true; return; }
@@ -2680,35 +2719,91 @@ function viewTabla(){
   '</div>';
 }
 
-function viewShare(){
-  return '' +
-  '<div class="stack" style="padding-top:12px">' +
+var ACENTOS = [
+  { id:"lima",    nombre:"Lima" },
+  { id:"azul",    nombre:"Azul" },
+  { id:"naranja", nombre:"Naranja" },
+  { id:"rosa",    nombre:"Rosa" }
+];
+var ESCALAS = [
+  { v:1,    nombre:"Normal" },
+  { v:1.12, nombre:"Grande" },
+  { v:1.25, nombre:"Muy grande" }
+];
 
-    '<div class="card box">' +
-      '<h3>Mandar al grupo</h3>' +
-      '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla</button>' +
-      '<p class="hint">La tabla como imagen a color, se ve en el chat sin abrir nada.</p>' +
-      '<button class="btn btn-primary btn-wide" data-act="sheet" style="margin-top:14px">Mandar hoja PDF</button>' +
-      '<p class="hint">La hoja completa con cuadro, marcadores y tabla. Al ser un archivo, el iPhone abre la ventana de compartir y ahí eliges WhatsApp.</p>' +
-      '<div class="row" style="gap:10px;margin-top:12px">' +
-        '<button class="btn btn-ghost btn-sm grow" data-act="copy">Copiar tabla</button>' +
-        '<button class="btn btn-ghost btn-sm grow" data-act="copyDraw">Copiar cuadro</button>' +
-      '</div>' +
-    '</div>' +
+function viewAjustes(){
+  var hayTorneo = !enHome && S && S.started;
 
-    (RO ? '' : shareCard()) +
-
-    (RO ? '' :
-      '<div class="card box">' +
-        '<h3>Este torneo</h3>' +
-        '<label class="lbl" for="tname">Nombre</label>' +
+  var torneo = (hayTorneo && !RO)
+    ? '<div class="card box">' +
+        '<h3>Este torneo<span class="side-note">'+esc(S.name)+'</span></h3>' +
+        '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla</button>' +
+        '<p class="hint">Como imagen a color, se ve en el chat sin abrir nada.</p>' +
+        '<button class="btn btn-primary btn-wide" data-act="sheet" style="margin-top:12px">Mandar hoja PDF</button>' +
+        '<p class="hint">Cuadro, marcadores y tabla en una hoja.</p>' +
+        '<div class="row" style="gap:10px;margin-top:12px">' +
+          '<button class="btn btn-ghost btn-sm grow" data-act="copy">Copiar tabla</button>' +
+          '<button class="btn btn-ghost btn-sm grow" data-act="copyDraw">Copiar cuadro</button>' +
+        '</div>' +
+        '<label class="lbl" style="margin-top:16px" for="tname">Nombre del torneo</label>' +
         '<input class="field" id="tname" value="'+esc(S.name)+'" maxlength="24" data-act="rename" autocomplete="off">' +
-        '<div class="counter" style="margin-top:12px">'+esc(setupLine())+'</div>' +
+        '<div class="counter" style="margin-top:10px">'+esc(setupLine())+'</div>' +
         '<div class="counter" style="margin-top:3px">'+esc(durLine())+' · '+esc(nombreFormato())+'</div>' +
         '<button class="btn btn-wide" data-act="'+(S.finished?"reopen":"finish")+'" style="margin-top:14px">' +
           (S.finished ? "Reabrir torneo" : "Cerrar torneo ya") + '</button>' +
-        '<p class="hint">Para empezar otro o borrar este, usa las pestañas de arriba del todo.</p>' +
-      '</div>') +
+        '<button class="btn btn-danger btn-wide" data-act="delT" data-i="'+DB.active+'" style="margin-top:10px">' +
+          'Eliminar este torneo</button>' +
+      '</div>'
+    : "";
+
+  var compartir = (hayTorneo && !RO) ? shareCard() : "";
+
+  var apariencia =
+    '<div class="card box">' +
+      '<h3>Apariencia</h3>' +
+      '<label class="lbl">Tema</label>' +
+      '<div class="seg">' +
+        '<button data-act="tema" data-v="" aria-pressed="'+(!DB.theme)+'">Automático</button>' +
+        '<button data-act="tema" data-v="light" aria-pressed="'+(DB.theme==="light")+'">Claro</button>' +
+        '<button data-act="tema" data-v="dark" aria-pressed="'+(DB.theme==="dark")+'">Oscuro</button>' +
+      '</div>' +
+      '<label class="lbl" style="margin-top:14px">Color</label>' +
+      '<div class="colores">' + ACENTOS.map(function(a){
+        return '<button class="col-op'+((DB.accent||"lima")===a.id?" on":"")+'" data-act="acento" data-v="'+a.id+'" ' +
+          'data-c="'+a.id+'" aria-label="'+a.nombre+'"><i></i><span>'+a.nombre+'</span></button>';
+      }).join("") + '</div>' +
+      '<label class="lbl" style="margin-top:14px">Tamaño de letra</label>' +
+      '<div class="seg">' + ESCALAS.map(function(e){
+        return '<button data-act="escala" data-v="'+e.v+'" aria-pressed="'+((DB.escala||1)===e.v)+'">'+e.nombre+'</button>';
+      }).join("") + '</div>' +
+      '<p class="hint">El tamaño afecta al contenido, no a los botones de abajo.</p>' +
+    '</div>';
+
+  var idioma =
+    '<div class="card box">' +
+      '<h3>Idioma</h3>' +
+      '<div class="seg">' +
+        '<button data-act="idioma" data-v="es" aria-pressed="true">Español</button>' +
+        '<button data-act="idioma" data-v="en" aria-pressed="false">English</button>' +
+      '</div>' +
+      '<p class="hint">La traducción al inglés está a medias: toca todos los textos de la app y prefiero hacerla de una vez antes que dejarla mezclada.</p>' +
+    '</div>';
+
+  var acerca =
+    '<div class="card box">' +
+      '<h3>Padelito<span class="side-note">versión '+VERSION+'</span></h3>' +
+      '<div class="counter">Sorteo de parejas y marcador en vivo para pádel.</div>' +
+      '<div class="counter" style="margin-top:6px">Creada por Carlos Rosas.</div>' +
+      (DB.tournaments.length
+        ? '<div class="counter" style="margin-top:6px">'+DB.tournaments.length+
+          (DB.tournaments.length===1?" torneo guardado":" torneos guardados")+' en este teléfono.</div>'
+        : '') +
+    '</div>';
+
+  return '' +
+  '<div class="stack" style="padding-top:12px">' +
+    (enHome ? '<button class="btn btn-wide" data-act="inicio">← Volver al inicio</button>' : '') +
+    torneo + compartir + apariencia + idioma + acerca +
   '</div>';
 }
 
@@ -2826,6 +2921,7 @@ function render(){
   var view   = document.getElementById("view");
   var tabsEl = document.getElementById("tabs");
   document.body.classList.toggle("ro", !!RO);
+  view.style.zoom = (DB.escala && DB.escala !== 1) ? DB.escala : "";
 
   var act0 = document.activeElement;
   var focusKey = (act0 && act0.dataset && act0.dataset.sc) ? act0.dataset.sc : null;
@@ -2844,8 +2940,7 @@ function render(){
     tabsEl.hidden = false;
     if(tab === "jug") tab = "tabla";
     document.getElementById("shareApp").hidden = true;
-    document.getElementById("shareBtn").hidden = false;
-    document.getElementById("shareBtn").classList.toggle("on", tab === "share");
+    document.getElementById("ajustesBtn").classList.toggle("on", tab === "ajustes");
     syncCourts();
     if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
     var banner = '<div class="viewer" style="margin-top:12px">' +
@@ -2857,7 +2952,7 @@ function render(){
     '</div>';
     view.innerHTML = banner + (tab === "ronda"  ? viewRonda()  :
                                tab === "cuadro" ? viewCuadro() :
-                               tab === "share"  ? viewShare()  : viewTabla());
+                               tab === "ajustes" ? viewAjustes() : viewTabla());
     Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function(t){
       t.setAttribute("aria-selected", String(t.dataset.tab === tab));
     });
@@ -2867,11 +2962,19 @@ function render(){
   }
 
   /* --- portada --- */
+  if(enHome && tab === "ajustes"){
+    tabsEl.hidden = true;
+    document.getElementById("shareApp").hidden = true;
+    document.getElementById("ajustesBtn").classList.add("on");
+    document.getElementById("sub").textContent = "ajustes";
+    view.innerHTML = viewAjustes();
+    return;
+  }
   if(enHome){
     tabsEl.hidden = true;
     document.getElementById("inicio").hidden = true;
     view.innerHTML = viewHome();
-    document.getElementById("shareBtn").hidden = true;
+    document.getElementById("ajustesBtn").classList.remove("on");
     var sa = document.getElementById("shareApp");
     sa.hidden = false;
     sa.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
@@ -2883,9 +2986,7 @@ function render(){
   syncCourts();
 
   document.getElementById("shareApp").hidden = true;
-  var sb = document.getElementById("shareBtn");
-  sb.hidden = !S.started;
-  sb.classList.toggle("on", tab === "share");
+  document.getElementById("ajustesBtn").classList.toggle("on", tab === "ajustes");
 
   if(!S.started){
     tabsEl.hidden = true;
@@ -2895,7 +2996,7 @@ function render(){
     if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
     view.innerHTML = tab === "ronda"  ? viewRonda()  :
                      tab === "cuadro" ? viewCuadro() :
-                     tab === "share"  ? viewShare()  : viewTabla();
+                     tab === "ajustes" ? viewAjustes() : viewTabla();
     Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function(t){
       t.setAttribute("aria-selected", String(t.dataset.tab === tab));
     });
@@ -2969,9 +3070,26 @@ document.addEventListener("click", function(e){
     enHome = false;
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
   }
-  if(act === "irShare"){ tab = "share"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(act === "irAjustes"){ tab = "ajustes"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(act === "tema"){
+    DB.theme = el.dataset.v || null;
+    aplicarApariencia(); save(); render(); return;
+  }
+  if(act === "acento"){
+    DB.accent = el.dataset.v;
+    aplicarApariencia(); save(); render(); return;
+  }
+  if(act === "escala"){
+    DB.escala = parseFloat(el.dataset.v) || 1;
+    save(); render(); aplicarApariencia(); return;
+  }
+  if(act === "idioma"){
+    if(el.dataset.v === "en") toast("El inglés todavía no está listo");
+    return;
+  }
   if(act === "inicio"){
-    enHome = true; RO = false; render(); window.scrollTo({top:0}); return;
+    enHome = true; RO = false; tab = "ronda";
+    render(); window.scrollTo({top:0}); return;
   }
   if(act === "irClave"){ location.href = "/t/" + el.dataset.c; return; }
   if(act === "olvidar"){
@@ -3119,15 +3237,6 @@ document.addEventListener("keydown", function(e){
   }
 });
 
-document.getElementById("themeBtn").addEventListener("click", function(){
-  var root = document.documentElement;
-  var isDark = root.getAttribute("data-theme") === "dark" ||
-    (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  DB.theme = isDark ? "light" : "dark";
-  root.setAttribute("data-theme", DB.theme);
-  save();
-});
-
 document.getElementById("tabs").addEventListener("click", function(e){
   var t = e.target.closest("[data-tab]");
   if(!t) return;
@@ -3139,7 +3248,7 @@ document.getElementById("tabs").addEventListener("click", function(e){
 /* Si dejaste un torneo a medias, la app abre en él. Si no, en la portada. */
 enHome = !(S && S.started && !S.finished);
 
-if(DB.theme) document.documentElement.setAttribute("data-theme", DB.theme);
+aplicarApariencia();
 
 /* ---------- arranque ---------- */
 function arrancar(){
