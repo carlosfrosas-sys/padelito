@@ -98,18 +98,18 @@
   }
 
   /* Colores de acento. Lima es el de siempre y no necesita bloque. */
-  :root[data-accent="azul"]{--ball:#1D6FA5;--ball-strong:#175C89;--ball-ink:#FFFFFF;--ball-wash:#DCEBF5}
-  :root[data-accent="naranja"]{--ball:#A64F06;--ball-strong:#8E4404;--ball-ink:#FFFFFF;--ball-wash:#FAE6D3}
-  :root[data-accent="rosa"]{--ball:#B32F70;--ball-strong:#95265B;--ball-ink:#FFFFFF;--ball-wash:#FADEEB}
+  :root[data-accent="azul"]{--brand:#1D6FA5;--brand-wash:#DCEBF5;--ball:#1D6FA5;--ball-strong:#175C89;--ball-ink:#FFFFFF;--ball-wash:#DCEBF5}
+  :root[data-accent="naranja"]{--brand:#A64F06;--brand-wash:#FAE6D3;--ball:#A64F06;--ball-strong:#8E4404;--ball-ink:#FFFFFF;--ball-wash:#FAE6D3}
+  :root[data-accent="rosa"]{--brand:#B32F70;--brand-wash:#FADEEB;--ball:#B32F70;--ball-strong:#95265B;--ball-ink:#FFFFFF;--ball-wash:#FADEEB}
 
   @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"])[data-accent="azul"]{--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
-    :root:not([data-theme="light"])[data-accent="naranja"]{--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
-    :root:not([data-theme="light"])[data-accent="rosa"]{--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+    :root:not([data-theme="light"])[data-accent="azul"]{--brand:#5FB4E8;--brand-wash:#12303F;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
+    :root:not([data-theme="light"])[data-accent="naranja"]{--brand:#F0A257;--brand-wash:#3A2716;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
+    :root:not([data-theme="light"])[data-accent="rosa"]{--brand:#F183B8;--brand-wash:#3A1428;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
   }
-  :root[data-theme="dark"][data-accent="azul"]{--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
-  :root[data-theme="dark"][data-accent="naranja"]{--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
-  :root[data-theme="dark"][data-accent="rosa"]{--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
+  :root[data-theme="dark"][data-accent="azul"]{--brand:#5FB4E8;--brand-wash:#12303F;--ball:#5FB4E8;--ball-strong:#7CC5F0;--ball-ink:#04202E;--ball-wash:#12303F}
+  :root[data-theme="dark"][data-accent="naranja"]{--brand:#F0A257;--brand-wash:#3A2716;--ball:#F0A257;--ball-strong:#F5B67A;--ball-ink:#2A1400;--ball-wash:#3A2716}
+  :root[data-theme="dark"][data-accent="rosa"]{--brand:#F183B8;--brand-wash:#3A1428;--ball:#F183B8;--ball-strong:#F6A2CB;--ball-ink:#33061D;--ball-wash:#3A1428}
 
   *{box-sizing:border-box}
   /* Sin zoom por doble toque en el iPhone: al anotar se dan toques rápidos
@@ -2529,6 +2529,7 @@ function viewSetup(){
 
     preview +
     '<button class="btn btn-primary btn-wide" data-act="start"'+(ok?"":" disabled")+'>Empezar torneo</button>' +
+    '<button class="btn btn-wide" data-act="inicio">Inicio</button>' +
   '</div>';
 }
 
@@ -2802,8 +2803,8 @@ function viewAjustes(){
 
   return '' +
   '<div class="stack" style="padding-top:12px">' +
-    (enHome ? '<button class="btn btn-wide" data-act="inicio">← Volver al inicio</button>' : '') +
     torneo + compartir + apariencia + idioma + acerca +
+    (enHome ? '<button class="btn btn-wide" data-act="inicio">Inicio</button>' : '') +
   '</div>';
 }
 
@@ -2866,7 +2867,12 @@ function viewHome(){
   return '' +
   '<div class="stack" style="padding-top:18px">' +
 
-    '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
+    '<div class="card box">' +
+      '<h3>Qué hace</h3>' +
+      '<p class="hint" style="margin-top:0">Arma las parejas de un americano de pádel para que todos jueguen ' +
+      'con todos y descansen lo mismo, lleva la tabla ronda a ronda y comparte el marcador en vivo con el ' +
+      'grupo. De 4 a 12 jugadores.</p>' +
+    '</div>' +
 
     '<div class="card box">' +
       '<h3>Entrar a un torneo</h3>' +
@@ -2901,6 +2907,8 @@ function viewHome(){
           }).join("") + '</div>' +
         '</div>'
       : '') +
+
+    '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
   '</div>';
 }
 
