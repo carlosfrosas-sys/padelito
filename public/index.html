@@ -464,34 +464,43 @@
 
   /* ---------- cuadro ---------- */
   .card.now{border-color:var(--brand)}
+  /* Dos rondas por fila cuando hay sitio; en móvil estrecho, una. */
+  .cuadro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
   .fx{
-    display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:8px;
-    padding:9px 11px;border-bottom:1px solid var(--line-soft);
+    display:grid;grid-template-columns:auto 1fr;align-items:start;gap:7px;
+    padding:7px 9px;border-bottom:1px solid var(--line-soft);
   }
   .fx-c{
     font-family:var(--f-mono);font-size:9.5px;letter-spacing:.06em;color:var(--muted);
-    background:var(--card-2);border-radius:5px;padding:3px 5px;
+    background:var(--card-2);border-radius:5px;padding:3px 5px;margin-top:1px;
   }
-  .fx-t{
-    font-family:var(--f-display);font-size:16.5px;line-height:1.2;text-transform:uppercase;
-    letter-spacing:.01em;color:var(--muted);overflow-wrap:anywhere;
+  .fxg{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .fxl{display:flex;align-items:baseline;gap:6px}
+  .fxn{
+    flex:1;min-width:0;font-family:var(--f-display);font-size:14.5px;line-height:1.15;
+    text-transform:uppercase;letter-spacing:.01em;color:var(--muted);overflow-wrap:anywhere;
   }
-  .fx-t.r{text-align:right}
-  .fx-t.w{color:var(--ink);font-weight:700}
-  .fx-t i{font-style:normal;opacity:.45;padding:0 1px}
-  .fx-s{
-    font-family:var(--f-display);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;
-    min-width:62px;text-align:center;background:var(--card-2);border-radius:8px;padding:2px 7px;
+  .fxl.w .fxn{color:var(--ink);font-weight:700}
+  .fxn i{font-style:normal;opacity:.45;padding:0 1px}
+  .fxp{
+    flex:none;font-family:var(--f-display);font-size:16px;font-weight:700;
+    font-variant-numeric:tabular-nums;min-width:14px;text-align:right;
   }
-  .fx-s i{font-style:normal;opacity:.4;padding:0 2px}
-  .fx-s.pend{
-    font-family:var(--f-mono);font-size:11px;font-weight:400;letter-spacing:.1em;
-    color:var(--muted);background:transparent;text-transform:uppercase;
-  }
+  .fxl.w .fxp{color:var(--win)}
+  .fxp.pend{color:var(--muted);font-weight:400}
   .fx-rest{
-    padding:8px 11px;font-family:var(--f-mono);font-size:12px;color:var(--muted);
-    background:var(--card-2);
+    padding:6px 9px;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);
+    background:var(--card-2);line-height:1.35;
   }
+  .cuadro-grid .court-head{padding:6px 9px;gap:6px}
+  .cuadro-grid .court-head .n{font-size:13px;white-space:nowrap}
+  .cuadro-grid .court-head .t{display:none}        /* el marcador ya lo dice */
+  .cuadro-grid .court-head .btn{
+    margin-left:auto;padding:2px 8px !important;font-size:11px;white-space:nowrap;
+  }
+  .cuadro-grid .fx-c{font-size:9px;padding:2px 4px}
+  /* La ronda que estás jugando, marcada de un vistazo. */
+  .cuadro-grid .card.now .court-head{background:var(--brand-wash)}
   .repl{display:flex;flex-direction:column}
   .rep{
     display:flex;align-items:baseline;gap:10px;padding:7px 0;
@@ -602,24 +611,25 @@
     border-top:1px solid var(--line);
     padding-bottom:env(safe-area-inset-bottom);
   }
-  .tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+  .tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 6px}
   /* El espectador no tiene inicio: no es su app. */
   body.ro .tabs-in{grid-template-columns:repeat(3,1fr)}
   body.ro .tab-inicio{display:none}
-  .tab-inicio .ic{font-size:15px}
+  .tab-inicio .ic{font-size:19px}
   /* Compartir vive arriba a la derecha, junto al tema. */
   .theme-btn.on{background:var(--ball);border-color:var(--ball-strong);color:var(--ball-ink)}
+  .theme-btn svg{pointer-events:none;display:block}
   .tab{
-    border:0;background:transparent;padding:11px 6px 13px;cursor:pointer;
-    display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);
+    border:0;background:transparent;padding:9px 2px 12px;cursor:pointer;width:100%;
+    display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--muted);
   }
-  .tab span{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+  .tab span{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
   .tab[aria-selected="true"]{color:var(--ink)}
   .tab[aria-selected="true"] .ic{background:var(--ball);border-color:var(--ball-strong);color:var(--ball-ink)}
   .ic{
-    width:30px;height:22px;border-radius:7px;border:1px solid var(--line);background:var(--card);
-    display:grid;place-items:center;font-family:var(--f-display);font-size:13px;font-weight:700;
-    letter-spacing:.04em;
+    width:100%;max-width:74px;height:30px;border-radius:9px;border:1px solid var(--line);
+    background:var(--card);display:grid;place-items:center;
+    font-family:var(--f-display);font-size:16px;font-weight:700;letter-spacing:.04em;
   }
 
   /* ---------- diálogo de confirmación ---------- */
@@ -694,7 +704,7 @@
         <small id="sub">americano · 0 jugadores</small>
       </div>
     </div>
-    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir" aria-label="Compartir" hidden>↗</button>
+    <button class="theme-btn" id="shareBtn" data-act="irShare" title="Compartir" aria-label="Compartir" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg></button>
     <span class="live" id="live" hidden><i></i><span></span></span>
     <button class="theme-btn" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
   </div>
@@ -2056,6 +2066,116 @@ function aPNG(paginas){
   });
 }
 
+/* Tabla final como imagen, para mandarla al grupo y que se vea en el chat
+   sin abrir nada. Se dibuja con la paleta clara para que se lea bien tanto
+   en WhatsApp claro como oscuro. */
+function tablaPNG(){
+  return new Promise(function(res, rej){
+    var rk = ranking(), parts = S.scoring === "partidos";
+    var W = 820, FILA = 62, TOP = 168, PIE = 58;
+    var H = TOP + rk.length * FILA + PIE;
+    var esc2 = 2;
+
+    var c = document.createElement("canvas");
+    c.width = W * esc2; c.height = H * esc2;
+    var g = c.getContext("2d");
+    if(!g) return rej(new Error("sin canvas"));
+    g.scale(esc2, esc2);
+
+    var TIPO = "'Avenir Next Condensed','Roboto Condensed','Arial Narrow',Helvetica,Arial,sans-serif";
+    var MONO = "'SF Mono',Menlo,Consolas,monospace";
+    var ORO = ["#F6EBCB", "#7E590C"], PLATA = ["#E7EDF1", "#5C6A75"], BRONCE = ["#F4DFCE", "#8A5024"];
+
+    function texto(t, x, y, size, bold, color, alin){
+      g.fillStyle = color;
+      g.font = (bold ? "700 " : "400 ") + size + "px " + TIPO;
+      g.textAlign = alin || "left";
+      g.fillText(String(t), x, y);
+    }
+    function redondo(x, y, w, h, r){
+      g.beginPath();
+      g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r);
+      g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r);
+      g.arcTo(x, y, x + w, y, r); g.closePath();
+    }
+
+    g.fillStyle = "#EAF1F5"; g.fillRect(0, 0, W, H);
+    redondo(16, 16, W - 32, H - 32, 22); g.fillStyle = "#FFFFFF"; g.fill();
+
+    // cabecera
+    texto("PADELITO", 46, 58, 15, false, "#8FA6B3");
+    texto(S.name, 46, 96, 34, true, "#0B1F2C");
+    var sub = (S.finished ? "Torneo concluido · " : "Van ") + S.rounds.length + " rondas · " +
+      S.players.length + " jugadores" + (parts ? " · 3-1-0" : "");
+    texto(sub, 46, 122, 15, false, "#5E7A8A");
+    if(S.remote) texto("Clave " + S.remote.slug, W - 46, 96, 20, true, "#0F4C75", "right");
+
+    g.strokeStyle = "#D2E0E8"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(46, TOP - 26); g.lineTo(W - 46, TOP - 26); g.stroke();
+
+    var xN = 108, xP = 520, xG = 606, xE = 672, xL = 738;
+    g.font = "400 12px " + MONO; g.fillStyle = "#8FA6B3"; g.textAlign = "left";
+    g.fillText("JUGADOR", xN, TOP - 8);
+    g.textAlign = "right";
+    ["PTS", "G", "E", "P"].forEach(function(h, i){
+      g.fillText(h, [xP, xG, xE, xL][i], TOP - 8);
+    });
+
+    rk.forEach(function(f, i){
+      var y = TOP + i * FILA, medalla = i < 3 && f.pj > 0;
+      var col = i === 0 ? ORO : i === 1 ? PLATA : BRONCE;
+      if(medalla){
+        redondo(34, y + 5, W - 68, FILA - 10, 12);
+        g.fillStyle = col[0]; g.fill();
+      }else if(i % 2){
+        g.fillStyle = "#F6FAFC"; g.fillRect(34, y + 5, W - 68, FILA - 10);
+      }
+      // puesto
+      if(medalla){
+        g.beginPath(); g.arc(66, y + FILA / 2, 17, 0, 6.284);
+        g.fillStyle = col[1]; g.fill();
+        texto(i + 1, 66, y + FILA / 2 + 7, 18, true, "#FFFFFF", "center");
+      }else{
+        texto(i + 1, 66, y + FILA / 2 + 7, 19, true, "#8FA6B3", "center");
+      }
+      texto(f.p.name, xN, y + FILA / 2 + 8, 25, i < 3, "#0B1F2C");
+      texto(f.pts, xP, y + FILA / 2 + 8, 26, true, "#0B1F2C", "right");
+      texto(f.g,  xG, y + FILA / 2 + 7, 20, true, "#12805A", "right");
+      texto(f.e,  xE, y + FILA / 2 + 7, 19, false, "#5E7A8A", "right");
+      texto(f.l,  xL, y + FILA / 2 + 7, 19, false, "#5E7A8A", "right");
+    });
+
+    var yPie = TOP + rk.length * FILA + 22;
+    texto(parts ? "Pts: 3 por ganar, 1 por empatar · G ganados · E empatados · P perdidos"
+                : "Pts: puntos ganados · G ganados · E empatados · P perdidos",
+          46, yPie, 13, false, "#8FA6B3");
+
+    c.toBlob(function(b){ b ? res(b) : rej(new Error("sin blob")); }, "image/png");
+  });
+}
+
+function compartirTabla(){
+  tablaPNG().then(function(png){
+    var nombre = nombreHoja() + "-tabla.png";
+    var file = null;
+    try{ file = new File([png], nombre, { type:"image/png" }); }catch(e){}
+    if(file && navigator.canShare && navigator.canShare({ files:[file] })){
+      navigator.share({ files:[file], title:S.name,
+                        text: S.remote ? mensajeGrupo() : S.name })
+        .catch(function(err){ if(!err || err.name !== "AbortError") descargar(png, nombre); });
+      return;
+    }
+    if(window.claude && window.claude.use){
+      window.claude.use("downloads").then(function(dl){
+        if(!dl){ toast("Aquí no se puede guardar"); return; }
+        return dl.save({ filename:nombre, data:png }).then(function(){ toast("Imagen guardada"); });
+      }).catch(function(e){ if(!e || e.code !== "declined") toast("No se pudo guardar"); });
+      return;
+    }
+    descargar(png, nombre);
+  }).catch(function(){ toast("No se pudo crear la imagen"); });
+}
+
 function nombreHoja(){
   return "padel-" + String(S.name).replace(/[^\wáéíóúñÁÉÍÓÚÑ -]/g, "-").replace(/\s+/g, "-").toLowerCase();
 }
@@ -2178,14 +2298,22 @@ function rosterCard(){
 
 /* Una ronda del cuadro. interactive = botón para ir a anotar y resalte de la ronda actual. */
 function roundCard(r, ri, interactive){
+  /* Apilado en vez de enfrentado: ocupa la mitad de ancho y así caben dos
+     rondas por fila, que es la mitad de scroll. */
   var fx = r.matches.map(function(m, mi){
     var has = m.sa !== null && m.sb !== null;
-    var wa = has && m.sa > m.sb, wb = has && m.sb > m.sa;
+    function linea(ids, val, gana){
+      return '<div class="fxl'+(gana?" w":"")+'">' +
+        '<span class="fxn">'+esc(nameOf(ids[0]))+' <i>·</i> '+esc(nameOf(ids[1]))+'</span>' +
+        '<span class="fxp'+(has?"":" pend")+'">'+(has ? val : "·")+'</span>' +
+      '</div>';
+    }
     return '<div class="fx">' +
       '<span class="fx-c">C'+(mi+1)+'</span>' +
-      '<div class="fx-t'+(wa?" w":"")+'">'+esc(nameOf(m.a[0]))+' <i>·</i> '+esc(nameOf(m.a[1]))+'</div>' +
-      '<div class="fx-s'+(has?"":" pend")+'">'+(has ? m.sa+'<i>–</i>'+m.sb : 'vs')+'</div>' +
-      '<div class="fx-t r'+(wb?" w":"")+'">'+esc(nameOf(m.b[0]))+' <i>·</i> '+esc(nameOf(m.b[1]))+'</div>' +
+      '<div class="fxg">' +
+        linea(m.a, m.sa, has && m.sa > m.sb) +
+        linea(m.b, m.sb, has && m.sb > m.sa) +
+      '</div>' +
     '</div>';
   }).join("");
   var rest = r.rest.length
@@ -2279,7 +2407,9 @@ function viewSetup(){
           ? "Esta primera ronda es al azar. Las otras "+(estRounds()-1)+" se sortean al cerrar cada una, emparejando al primero de la tabla con el último: así todos los partidos salen igualados."
           : "Nadie repite compañero mientras queden combinaciones nuevas, y el descanso va rotando.")+'</p>' +
       '</div>' +
-      S.rounds.map(function(r, ri){ return roundCard(r, ri, false); }).join("") +
+      '<div class="cuadro-grid">' +
+        S.rounds.map(function(r, ri){ return roundCard(r, ri, false); }).join("") +
+      '</div>' +
       repartoHTML() +
       '<button class="btn btn-primary btn-wide" data-act="sheet">Mandar sorteo PDF</button>' +
       '<p class="hint" style="margin-top:-4px;text-align:center">Lleva las rondas y el reparto. Si no les convence, vuelve a sortear.</p>' +
@@ -2455,7 +2585,9 @@ function viewCuadro(){
         (S.finished ? "Torneo concluido" : esc(durLine()))+'</div>' +
       (!S.finished && roundsNote() ? '<div class="counter" style="margin-top:3px">'+esc(roundsNote())+'</div>' : '') +
     '</div>' +
-    S.rounds.map(function(r, ri){ return roundCard(r, ri, true); }).join("") +
+    '<div class="cuadro-grid">' +
+      S.rounds.map(function(r, ri){ return roundCard(r, ri, true); }).join("") +
+    '</div>' +
     repartoHTML() +
     '<div class="row" style="gap:10px">' +
       '<a class="btn btn-wa grow" href="'+esc(waLink(textoCuadro()))+'" target="_blank" rel="noopener">WhatsApp</a>' +
@@ -2525,6 +2657,11 @@ function viewTabla(){
     '<p class="hint">'+(S.scoring==="partidos"
       ? "Pts: 3 por ganar, 1 por empatar · G/E/P: ganados, empatados, perdidos · Juego: puntos hechos en la cancha, que desempatan."
       : "Pts: puntos ganados · G: partidos ganados · E: empatados · P: perdidos. Con los mismos puntos, sube quien ganó más partidos.")+'</p>' +
+
+    '<a class="btn btn-wa btn-wide" href="'+esc(waLink(textoTabla()))+'" target="_blank" rel="noopener">' +
+      'Mandar tabla por WhatsApp</a>' +
+    '<button class="btn btn-primary btn-wide" data-act="tablaImg">Mandar tabla como imagen</button>' +
+    '<p class="hint" style="margin-top:-4px">La imagen sale a color y se ve en el chat sin abrir nada.</p>' +
   '</div>';
 }
 
@@ -2857,6 +2994,7 @@ document.addEventListener("click", function(e){
   if(act === "copy"){ copyTable(); return; }
   if(act === "copyDraw"){ copyDraw(); return; }
   if(act === "sheet"){ compartirHoja(); return; }
+  if(act === "tablaImg"){ compartirTabla(); return; }
 
   if(act === "publish"){ publish(); return; }
   if(act === "unpublish"){ stopSharing(); return; }
