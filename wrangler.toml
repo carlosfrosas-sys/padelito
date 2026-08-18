@@ -1,0 +1,20 @@
+name = "padelito"
+main = "src/index.js"
+compatibility_date = "2026-01-15"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# Sin esto, Cloudflare serviría public/api/ping.json (que dice "no hay servidor")
+# antes de llegar al Worker. La API siempre manda.
+run_worker_first = ["/api/*"]
+
+[[durable_objects.bindings]]
+name = "TOURNAMENT"
+class_name = "Tournament"
+
+# Durable Objects con almacenamiento SQLite: es lo que permite el plan gratuito.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Tournament"]

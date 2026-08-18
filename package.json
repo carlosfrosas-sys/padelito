@@ -1,0 +1,14 @@
+{
+  "name": "punto-de-oro",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
