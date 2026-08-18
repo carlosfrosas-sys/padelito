@@ -788,12 +788,7 @@
 <main class="wrap" id="view"></main>
 
 <nav class="tabs" id="tabs" hidden>
-  <div class="tabs-in" role="tablist">
-    <button class="tab tab-inicio" id="inicio" data-act="inicio"><span class="ic">⌂</span><span>Inicio</span></button>
-    <button class="tab" role="tab" data-tab="ronda"><span class="ic">VS</span><span>Ronda</span></button>
-    <button class="tab" role="tab" data-tab="cuadro"><span class="ic">▦</span><span>Cuadro</span></button>
-    <button class="tab" role="tab" data-tab="tabla"><span class="ic">#</span><span>Tabla</span></button>
-  </div>
+  <div class="tabs-in" id="tabsIn" role="tablist"></div>
 </nav>
 
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
@@ -2893,9 +2888,70 @@ function shareCard(){
 var ICONO_WA = '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">' +
   '<path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2Zm0 18.02h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.37c0-4.54 3.7-8.23 8.25-8.23a8.23 8.23 0 0 1 0 16.46Zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.79.97-.14.16-.29.18-.54.06-.25-.13-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.43h-.47c-.17 0-.43.06-.66.31-.22.25-.87.85-.87 2.07s.89 2.4 1.02 2.56c.12.17 1.75 2.67 4.24 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.11-.22-.17-.47-.29Z"/></svg>';
 
+var ICONO_ENG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06' +
+  'a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32' +
+  'l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.1' +
+  'a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9' +
+  'a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83' +
+  'l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>';
+var ICONO_SUBIR = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></svg>';
+
+/* La barra de abajo cambia según dónde estés: dentro de un torneo lleva a
+   sus pantallas; fuera, sirve para moverse por la app sin perderse. */
+function pintarBarra(modo){
+  var b = document.getElementById("tabsIn"), h = "";
+  function t(act, val, ic, txt, on){
+    return '<button class="tab" data-act="'+act+'"'+(val!==null?' data-v="'+val+'"':'')+
+      ' aria-selected="'+(!!on)+'"><span class="ic">'+ic+'</span><span>'+txt+'</span></button>';
+  }
+  if(modo === "home"){
+    var v = enHome ? (tab === "ajustes" ? "ajustes" : tab === "torneos" ? "torneos" : "inicio") : "";
+    h = t("homeIr", "inicio",  "⌂", "Inicio",  v === "inicio") +
+        t("homeIr", "torneos", "▤", "Torneos", v === "torneos") +
+        '<a class="tab" id="tabCompartir" target="_blank" rel="noopener">' +
+          '<span class="ic">'+ICONO_SUBIR+'</span><span>Compartir</span></a>' +
+        t("irAjustes", null, ICONO_ENG, "Ajustes", v === "ajustes");
+  }else{
+    h = '<button class="tab tab-inicio" data-act="inicio"><span class="ic">⌂</span><span>Inicio</span></button>' +
+        t("verTab", "ronda",  "VS", "Ronda",  tab === "ronda") +
+        t("verTab", "cuadro", "▦", "Cuadro", tab === "cuadro") +
+        t("verTab", "tabla",  "#",  "Tabla",  tab === "tabla");
+  }
+  b.innerHTML = h;
+  var c = document.getElementById("tabCompartir");
+  if(c) c.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
+}
+
 /* Portada: crear, entrar con clave, y los torneos guardados aquí. */
-function viewHome(){
-  var lista = DB.tournaments.map(function(t, i){
+function viewInicio(){
+  return '' +
+  '<div class="stack" style="padding-top:18px">' +
+    '<div class="card box">' +
+      '<h3>Inicio</h3>' +
+      '<p class="hint" style="margin-top:0">Padelito es una app para armar torneos de pádel. Creas uno, ' +
+      'reparte las parejas de cada ronda y lleva la tabla sola. Le pasas la clave a tus amigos y siguen ' +
+      'el marcador en vivo desde su móvil mientras tú anotas. Y si alguien te da una clave, la metes aquí ' +
+      'abajo y entras a ver su torneo. De 4 a 12 jugadores.</p>' +
+    '</div>' +
+    '<div class="card box">' +
+      '<h3>Entrar a un torneo</h3>' +
+      '<div class="row">' +
+        '<input class="field grow clave-in" id="claveIn" placeholder="CLAVE" maxlength="5" ' +
+          'autocomplete="off" autocapitalize="characters" spellcheck="false" data-act="clave">' +
+        '<button class="btn" data-act="entrar">Entrar</button>' +
+      '</div>' +
+      '<p class="hint" id="claveMsg">Pide la clave al organizador. Son 5 caracteres y solo sirve para mirar el marcador.</p>' +
+    '</div>' +
+    '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
+  '</div>';
+}
+
+function viewTorneos(){
+  var mios = DB.tournaments.map(function(t, i){
     var jug = t.players.length;
     var estado = !t.started ? "sin empezar"
       : t.finished ? "concluido"
@@ -2915,51 +2971,33 @@ function viewHome(){
     '</div>';
   }).join("");
 
+  var sigo = (DB.seguidos || []).map(function(x){
+    return '<div class="tor">' +
+      '<button class="tor-ir" data-act="irClave" data-c="'+esc(x.clave)+'">' +
+        '<span class="tor-n">'+esc(x.nombre)+'</span>' +
+        '<span class="tor-m">clave '+esc(x.clave)+' · solo lectura</span>' +
+      '</button>' +
+      '<button class="tor-x" data-act="olvidar" data-c="'+esc(x.clave)+'" aria-label="Olvidar">×</button>' +
+    '</div>';
+  }).join("");
+
   return '' +
   '<div class="stack" style="padding-top:18px">' +
-
-    '<div class="card box">' +
-      '<h3>Inicio</h3>' +
-      '<p class="hint" style="margin-top:0">Padelito es una app para armar torneos de pádel. Creas uno, ' +
-      'reparte las parejas de cada ronda y lleva la tabla sola. Le pasas la clave a tus amigos y siguen ' +
-      'el marcador en vivo desde su móvil mientras tú anotas. Y si alguien te da una clave, la metes aquí ' +
-      'abajo y entras a ver su torneo. De 4 a 12 jugadores.</p>' +
-    '</div>' +
-
-    '<div class="card box">' +
-      '<h3>Entrar a un torneo</h3>' +
-      '<div class="row">' +
-        '<input class="field grow clave-in" id="claveIn" placeholder="CLAVE" maxlength="5" ' +
-          'autocomplete="off" autocapitalize="characters" spellcheck="false" data-act="clave">' +
-        '<button class="btn" data-act="entrar">Entrar</button>' +
-      '</div>' +
-      '<p class="hint" id="claveMsg">Pide la clave al organizador. Son 5 caracteres y solo sirve para mirar el marcador.</p>' +
-    '</div>' +
-
     (DB.tournaments.length
       ? '<div class="card">' +
           '<div class="box" style="padding-bottom:4px"><h3>Mis torneos' +
             '<span class="side-note">'+DB.tournaments.length+'</span></h3></div>' +
-          '<div class="torl">'+lista+'</div>' +
+          '<div class="torl">'+mios+'</div>' +
         '</div>'
-      : '') +
-
-    ((DB.seguidos && DB.seguidos.length)
+      : '<div class="card box"><h3>Mis torneos</h3>' +
+        '<p class="hint" style="margin-top:0">Todavía no has creado ninguno. Los que empieces aparecerán aquí con su clave.</p></div>') +
+    (sigo
       ? '<div class="card">' +
           '<div class="box" style="padding-bottom:4px"><h3>Torneos que sigo' +
             '<span class="side-note">de hoy</span></h3></div>' +
-          '<div class="torl">' + DB.seguidos.map(function(x){
-            return '<div class="tor">' +
-              '<button class="tor-ir" data-act="irClave" data-c="'+esc(x.clave)+'">' +
-                '<span class="tor-n">'+esc(x.nombre)+'</span>' +
-                '<span class="tor-m">clave '+esc(x.clave)+' · solo lectura</span>' +
-              '</button>' +
-              '<button class="tor-x" data-act="olvidar" data-c="'+esc(x.clave)+'" aria-label="Olvidar">×</button>' +
-            '</div>';
-          }).join("") + '</div>' +
+          '<div class="torl">'+sigo+'</div>' +
         '</div>'
       : '') +
-
     '<button class="btn btn-primary btn-wide" data-act="newT">Crear un torneo</button>' +
   '</div>';
 }
@@ -3000,7 +3038,9 @@ function render(){
     tabsEl.hidden = false;
     if(tab === "jug") tab = "tabla";
     document.getElementById("shareApp").hidden = true;
-    document.getElementById("ajustesBtn").classList.toggle("on", tab === "ajustes");
+    var abr = document.getElementById("ajustesBtn");
+    abr.hidden = false;
+    abr.classList.toggle("on", tab === "ajustes");
     syncCourts();
     if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
     var banner = '<div class="viewer" style="margin-top:12px">' +
@@ -3013,57 +3053,49 @@ function render(){
     view.innerHTML = banner + (tab === "ronda"  ? viewRonda()  :
                                tab === "cuadro" ? viewCuadro() :
                                tab === "ajustes" ? viewAjustes() : viewTabla());
-    Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function(t){
-      t.setAttribute("aria-selected", String(t.dataset.tab === tab));
-    });
+    pintarBarra("torneo");
     document.getElementById("sub").textContent =
       S.players.length + " jugadores · ronda " + (S.cur + 1) + " de " + S.rounds.length;
     return;
   }
 
-  /* --- portada --- */
-  if(enHome && tab === "ajustes"){
-    tabsEl.hidden = true;
+  /* --- portada y borrador: barra general para no perderse --- */
+  if(enHome || !S || !S.started){
     document.getElementById("shareApp").hidden = true;
-    document.getElementById("ajustesBtn").classList.add("on");
-    document.getElementById("sub").textContent = "ajustes";
-    view.innerHTML = viewAjustes();
-    return;
-  }
-  if(enHome){
-    tabsEl.hidden = true;
-    document.getElementById("inicio").hidden = true;
-    view.innerHTML = viewHome();
-    document.getElementById("ajustesBtn").classList.remove("on");
-    var sa = document.getElementById("shareApp");
-    sa.hidden = false;
-    sa.href = "https://wa.me/?text=" + encodeURIComponent(mensajeApp());
+    document.getElementById("ajustesBtn").hidden = true;
+    tabsEl.hidden = false;
+    pintarBarra("home");
+    if(enHome){
+      view.innerHTML = tab === "ajustes" ? viewAjustes()
+                     : tab === "torneos" ? viewTorneos()
+                     : viewInicio();
+      document.getElementById("sub").textContent =
+        tab === "ajustes" ? "ajustes"
+        : DB.tournaments.length
+          ? DB.tournaments.length + (DB.tournaments.length===1?" torneo guardado":" torneos guardados")
+          : "sorteo y marcador de pádel";
+      return;
+    }
+    syncCourts();
+    view.innerHTML = tab === "ajustes" ? viewAjustes() : viewSetup();
+    var actB = actives().length;
     document.getElementById("sub").textContent =
-      DB.tournaments.length ? DB.tournaments.length + (DB.tournaments.length===1?" torneo guardado":" torneos guardados")
-                            : "sorteo y marcador de pádel";
+      "creando torneo · " + actB + (actB === 1 ? " jugador" : " jugadores");
     return;
   }
   syncCourts();
 
   document.getElementById("shareApp").hidden = true;
-  document.getElementById("ajustesBtn").classList.toggle("on", tab === "ajustes");
+  var ab = document.getElementById("ajustesBtn");
+  ab.hidden = false;
+  ab.classList.toggle("on", tab === "ajustes");
 
-  if(tab === "ajustes"){
-    tabsEl.hidden = !S.started;
-    view.innerHTML = viewAjustes();
-  }else if(!S.started){
-    tabsEl.hidden = true;
-    view.innerHTML = viewSetup();
-  }else{
-    tabsEl.hidden = false;
-    if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
-    view.innerHTML = tab === "ronda"  ? viewRonda()  :
-                     tab === "cuadro" ? viewCuadro() :
-                     tab === "ajustes" ? viewAjustes() : viewTabla();
-    Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function(t){
-      t.setAttribute("aria-selected", String(t.dataset.tab === tab));
-    });
-  }
+  tabsEl.hidden = false;
+  if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
+  view.innerHTML = tab === "ronda"  ? viewRonda()  :
+                   tab === "cuadro" ? viewCuadro() :
+                   tab === "ajustes" ? viewAjustes() : viewTabla();
+  pintarBarra("torneo");
 
   var act = actives().length;
   document.getElementById("sub").textContent =
@@ -3132,6 +3164,13 @@ document.addEventListener("click", function(e){
   if(act === "switchT"){
     enHome = false;
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
+  }
+  if(act === "homeIr"){
+    enHome = true; RO = false; tab = el.dataset.v;
+    render(); window.scrollTo({top:0}); return;
+  }
+  if(act === "verTab"){
+    tab = el.dataset.v; render(); window.scrollTo({top:0,behavior:"smooth"}); return;
   }
   if(act === "volverSetup"){ tab = "ronda"; render(); window.scrollTo({top:0}); return; }
   if(act === "irAjustes"){ tab = "ajustes"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
@@ -3300,17 +3339,6 @@ document.addEventListener("keydown", function(e){
     e.target.blur();
   }
 });
-
-document.getElementById("tabs").addEventListener("click", function(e){
-  var t = e.target.closest("[data-tab]");
-  if(!t) return;
-  tab = t.dataset.tab;
-  render();
-  window.scrollTo({ top:0, behavior:"smooth" });
-});
-
-/* Si dejaste un torneo a medias, la app abre en él. Si no, en la portada. */
-enHome = !(S && S.started && !S.finished);
 
 aplicarApariencia();
 
