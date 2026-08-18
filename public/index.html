@@ -269,6 +269,38 @@
     text-transform:uppercase;color:var(--muted);margin:0 0 6px 2px;
   }
 
+  /* ---------- clave del torneo ---------- */
+  .btn-wa{
+    background:#25D366;color:#062d17;border-color:#1eb457;
+    font-weight:700;text-decoration:none;
+  }
+  .btn-wa:hover{background:#1eb457;border-color:#1eb457}
+  .clave-caja{
+    background:var(--brand-wash);border:1px solid color-mix(in srgb, var(--brand) 28%, var(--line));
+    border-radius:var(--r);padding:14px;text-align:center;margin-bottom:12px;
+  }
+  .clave-val{
+    font-family:var(--f-display);font-size:44px;font-weight:700;letter-spacing:.16em;
+    line-height:1.05;color:var(--brand);
+  }
+  .clave-sub{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-top:6px}
+
+  .clave-aviso{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;
+    background:var(--brand-wash);border:1px solid color-mix(in srgb, var(--brand) 28%, var(--line));
+    border-radius:var(--r);
+  }
+  .clave-aviso-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .clave-aviso b{
+    font-family:var(--f-display);font-size:27px;font-weight:700;letter-spacing:.14em;
+    line-height:1;color:var(--brand);
+  }
+  .clave-x{
+    flex:none;border:0;background:transparent;cursor:pointer;color:var(--muted);
+    font-size:18px;line-height:1;padding:4px 2px;
+  }
+  .clave-x:hover{color:var(--ink)}
+
   /* ---------- portada ---------- */
   .clave-in{
     font-family:var(--f-display);font-size:26px;font-weight:700;letter-spacing:.22em;
@@ -735,7 +767,8 @@ function freshT(n){
   };
 }
 function freshDB(){
-  return { v:2, seq:1, active:0, theme:null, roster:DEFAULT_ROSTER.slice(), tournaments:[] };
+  return { v:2, seq:1, active:0, theme:null, roster:DEFAULT_ROSTER.slice(),
+           tournaments:[], seguidos:[] };
 }
 
 function load(){
@@ -751,6 +784,9 @@ function load(){
       });
       o.active = Math.max(0, Math.min(o.active || 0, Math.max(0, o.tournaments.length - 1)));
       seedRoster(o);
+      if(!Array.isArray(o.seguidos)) o.seguidos = [];
+      var limite = Date.now() - 24 * 3600 * 1000;
+      o.seguidos = o.seguidos.filter(function(x){ return x && x.ts > limite; });
       return o;
     }
     // Torneo suelto guardado con la versión anterior: lo envolvemos.
@@ -875,6 +911,14 @@ function slugify(s){
 function publicLink(){ return location.origin + "/t/" + S.remote.slug; }
 function adminLink(){ return publicLink() + "#k=" + S.remote.key; }
 
+function mensajeGrupo(){
+  return "🎾 " + S.name + "\nClave: " + S.remote.slug +
+    "\n\nSigue el marcador en vivo:\n" + publicLink();
+}
+function enlaceWhatsapp(){
+  return "https://wa.me/?text=" + encodeURIComponent(mensajeGrupo());
+}
+
 function setLive(st){
   var el = document.getElementById("live");
   if(!el) return;
@@ -905,9 +949,19 @@ function diffMarcadores(viejo, nuevo){
   });
   return out;
 }
+/* Guarda la clave con la que acabas de entrar para no volver a teclearla
+   el mismo día. Se limpian solas a las 24 horas. */
+function recordarSeguido(clave, nombre){
+  if(!Array.isArray(DB.seguidos)) DB.seguidos = [];
+  DB.seguidos = DB.seguidos.filter(function(x){ return x.clave !== clave; });
+  DB.seguidos.unshift({ clave:clave, nombre:nombre || clave, ts:Date.now() });
+  DB.seguidos = DB.seguidos.slice(0, 8);
+  try{ localStorage.setItem(LS, JSON.stringify(DB)); }catch(e){}
+}
 function aplicarRemoto(nuevo){
   if(!nuevo) return;
   normalizeT(nuevo);
+  if(RO && ROUTE) recordarSeguido(ROUTE.slug, nuevo.name);
   flash = diffMarcadores(S, nuevo);
   S = nuevo;
   roLoaded = true;
@@ -1547,6 +1601,8 @@ function startTournament(){
   S.cur = 0;
   tab = "ronda";                       // se empieza jugando, no mirando el cuadro
   save(); render();
+  // La clave se genera al arrancar: no hay que acordarse de publicar nada.
+  if(BACKEND === true && !S.remote) publish();
 }
 function newTournament(){
   enHome = false;
@@ -2276,8 +2332,20 @@ function viewRonda(){
     action = '<button class="btn btn-primary btn-wide" data-act="nextR">Ronda '+(S.cur+2)+' →</button>';
   }
 
+  var avisoClave = (!RO && S.remote && !S.claveOculta)
+    ? '<div class="clave-aviso">' +
+        '<div class="clave-aviso-txt">' +
+          '<span class="lbl" style="margin:0">Clave del torneo</span>' +
+          '<b>'+esc(S.remote.slug)+'</b>' +
+        '</div>' +
+        '<a class="btn btn-wa btn-sm" href="'+esc(enlaceWhatsapp())+'" target="_blank" rel="noopener">WhatsApp</a>' +
+        '<button class="clave-x" data-act="ocultarClave" aria-label="Ocultar">×</button>' +
+      '</div>'
+    : '';
+
   return '' +
   '<div class="stack" style="padding-top:12px">' +
+    avisoClave +
     '<div class="rnav">' +
       (RO ? '' : '<button class="nav-btn" data-act="prev"'+(S.cur>0?"":" disabled")+' aria-label="Ronda anterior">‹</button>') +
       '<div class="t">Ronda '+(S.cur+1)+'<small>de '+S.rounds.length+' · '+(done?"completa":"en juego")+'</small></div>' +
@@ -2414,12 +2482,22 @@ function shareCard(){
     '</div>';
   }
   return '<div class="card box">' +
-    '<h3>Marcador en vivo<span class="side-note">publicado</span></h3>' +
-    '<label class="lbl">Para el grupo · solo pueden mirar</label>' +
-    '<button class="link" data-act="copyLink" data-l="pub">'+esc(publicLink())+'</button>' +
-    '<label class="lbl" style="margin-top:14px">Tu enlace · con este puedes anotar</label>' +
+    '<h3>Clave del torneo</h3>' +
+    '<div class="clave-caja">' +
+      '<div class="clave-val">'+esc(S.remote.slug)+'</div>' +
+      '<div class="clave-sub">'+esc(S.name)+' · '+actives().length+' jugadores · '+
+        S.rounds.length+' rondas</div>' +
+    '</div>' +
+    '<a class="btn btn-wa btn-wide" href="'+esc(enlaceWhatsapp())+'" target="_blank" rel="noopener">' +
+      'Mandar la clave por WhatsApp</a>' +
+    '<div class="row" style="gap:10px;margin-top:10px">' +
+      '<button class="btn grow" data-act="copyClave">Copiar clave</button>' +
+      '<button class="btn grow" data-act="copyLink" data-l="pub">Copiar enlace</button>' +
+    '</div>' +
+    '<p class="hint">Con la clave entran desde la portada, o con el enlace directo. Solo pueden mirar.</p>' +
+    '<label class="lbl" style="margin-top:16px">Tu enlace · con este anotas tú</label>' +
     '<button class="link" data-act="copyLink" data-l="adm">'+esc(adminLink())+'</button>' +
-    '<p class="warn">No pases este segundo enlace: quien lo tenga puede cambiar los marcadores.</p>' +
+    '<p class="warn">No pases este segundo: quien lo tenga puede cambiar los marcadores.</p>' +
     '<button class="btn btn-danger btn-wide" data-act="unpublish" style="margin-top:14px">Dejar de compartir</button>' +
   '</div>';
 }
@@ -2462,6 +2540,22 @@ function viewHome(){
           '<div class="box" style="padding-bottom:4px"><h3>Mis torneos' +
             '<span class="side-note">'+DB.tournaments.length+'</span></h3></div>' +
           '<div class="torl">'+lista+'</div>' +
+        '</div>'
+      : '') +
+
+    ((DB.seguidos && DB.seguidos.length)
+      ? '<div class="card">' +
+          '<div class="box" style="padding-bottom:4px"><h3>Torneos que sigo' +
+            '<span class="side-note">de hoy</span></h3></div>' +
+          '<div class="torl">' + DB.seguidos.map(function(x){
+            return '<div class="tor">' +
+              '<button class="tor-ir" data-act="irClave" data-c="'+esc(x.clave)+'">' +
+                '<span class="tor-n">'+esc(x.nombre)+'</span>' +
+                '<span class="tor-m">clave '+esc(x.clave)+' · solo lectura</span>' +
+              '</button>' +
+              '<button class="tor-x" data-act="olvidar" data-c="'+esc(x.clave)+'" aria-label="Olvidar">×</button>' +
+            '</div>';
+          }).join("") + '</div>' +
         '</div>'
       : '') +
   '</div>';
@@ -2620,6 +2714,11 @@ document.addEventListener("click", function(e){
   if(act === "inicio"){
     enHome = true; RO = false; render(); window.scrollTo({top:0}); return;
   }
+  if(act === "irClave"){ location.href = "/t/" + el.dataset.c; return; }
+  if(act === "olvidar"){
+    DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== el.dataset.c; });
+    save(); render(); return;
+  }
   if(act === "entrar"){
     var campo = document.getElementById("claveIn");
     var c = limpiaClave(campo && campo.value);
@@ -2658,6 +2757,8 @@ document.addEventListener("click", function(e){
 
   if(act === "publish"){ publish(); return; }
   if(act === "unpublish"){ stopSharing(); return; }
+  if(act === "ocultarClave"){ S.claveOculta = true; save(); render(); return; }
+  if(act === "copyClave"){ copy(S.remote.slug, "Clave copiada: " + S.remote.slug); return; }
   if(act === "copyLink"){
     copy(el.dataset.l === "adm" ? adminLink() : publicLink(),
          el.dataset.l === "adm" ? "Tu enlace copiado" : "Enlace copiado, pásalo al grupo");
