@@ -725,6 +725,7 @@ function freshT(n){
     courtsAuto: true,
     minutes: 120,
     roundPoints: 5,
+    scoring: "puntos",
     roundsAuto: true,
     roundsWanted: 12,
     rounds: [],           // {rest:[id], matches:[{a:[id,id],b:[id,id],sa,sb}]}
@@ -783,6 +784,7 @@ function normalizeT(t){
   }
   delete t.matchMins;
   if(t.roundPoints === undefined) t.roundPoints = 5;
+  if(t.scoring !== "partidos") t.scoring = "puntos";
   if(t.roundsAuto === undefined) t.roundsAuto = true;
   if(t.roundsWanted === undefined) t.roundsWanted = 12;
   delete t.target; delete t.freeScore;
@@ -1109,7 +1111,8 @@ function fmtDur(m){
 }
 function durLine(){
   var n = goalRounds();
-  return n + " rondas · " + S.roundPoints + " puntos por ronda";
+  return n + " rondas · " + S.roundPoints + " puntos por ronda" +
+    (S.scoring === "partidos" ? " · 2-1-0" : "");
 }
 /* Explica el ajuste cuando el número redondo de rondas no reparte bien los descansos. */
 function roundsNote(){
@@ -1133,7 +1136,7 @@ function roundsNote(){
 /* ============ estadísticas ============ */
 function stats(){
   var m = {};
-  S.players.forEach(function(p){ m[p.id] = { id:p.id, pts:0, pj:0, g:0, e:0, l:0, rest:0 }; });
+  S.players.forEach(function(p){ m[p.id] = { id:p.id, pts:0, juego:0, pj:0, g:0, e:0, l:0, rest:0 }; });
   S.rounds.forEach(function(r){
     r.rest.forEach(function(id){ if(m[id]) m[id].rest++; });
     r.matches.forEach(function(mt){
@@ -1141,7 +1144,7 @@ function stats(){
       [[mt.a, mt.sa, mt.sb], [mt.b, mt.sb, mt.sa]].forEach(function(s){
         s[0].forEach(function(id){
           var e = m[id]; if(!e) return;
-          e.pts += s[1]; e.pj++;
+          e.juego += s[1]; e.pj++;
           if(s[1] > s[2]) e.g++; else if(s[1] === s[2]) e.e++; else e.l++;
         });
       });
@@ -1149,6 +1152,9 @@ function stats(){
   });
   Object.keys(m).forEach(function(k){
     var e = m[k];
+    /* Por puntos: cuenta lo que ganaste en la cancha.
+       Por partidos: 2 al ganar, 1 al empatar, 0 al perder — da igual por cuánto. */
+    e.pts = (S.scoring === "partidos") ? (e.g * 2 + e.e) : e.juego;
     e.prom = e.pj ? e.pts / e.pj : 0;   // solo desempata si alguien jugó menos
   });
   return m;
@@ -1157,8 +1163,14 @@ function ranking(){
   var st = stats();
   return S.players.map(function(p){
     var e = st[p.id];
-    return { p:p, pts:e.pts, pj:e.pj, g:e.g, e:e.e, l:e.l, prom:e.prom, rest:e.rest };
+    return { p:p, pts:e.pts, juego:e.juego, pj:e.pj, g:e.g, e:e.e, l:e.l,
+             prom:e.prom, rest:e.rest };
   }).sort(function(x,y){
+    if(S.scoring === "partidos"){
+      // Empatados a puntos de tabla, sube quien más puntos hizo en la cancha.
+      return (y.pts - x.pts) || (y.juego - x.juego) || (y.g - x.g) ||
+             x.p.name.localeCompare(y.p.name, "es");
+    }
     return (y.pts - x.pts) || (y.g - x.g) || (y.e - x.e) || (y.prom - x.prom) ||
            x.p.name.localeCompare(y.p.name, "es");
   });
@@ -1793,18 +1805,20 @@ function hojaSpec(){
   baja(20);
   txt("TABLA", PG_M, 11, true);
   baja(6); regla(); baja(12);
-  ["#", "JUGADOR", "PTS", "G", "E", "P"].forEach(function(h, i){
-    txt(h, [PG_M, PG_M + 20, 300, 366, 412, 458][i], 6.5, false, 0.55);
-  });
+  var cols = ["#", "JUGADOR", "PTS", "G", "E", "P"];
+  var cx = [PG_M, PG_M + 20, 300, 356, 396, 436];
+  if(S.scoring === "partidos"){ cols.push("JUEGO"); cx.push(478); }
+  cols.forEach(function(h, i){ txt(h, cx[i], 6.5, false, 0.55); });
   baja(13);
   rk.forEach(function(f, i){
     sitio(13);
     txt(i + 1, PG_M, 9.5, false, 0.5);
     txt(corta(f.p.name, 22), PG_M + 20, 10.5, i === 0);
     txt(f.pts, 300, 10.5, i === 0);
-    txt(f.g, 366, 10, true);
-    txt(f.e, 412, 9.5, false, 0.4);
-    txt(f.l, 458, 9.5, false, 0.4);
+    txt(f.g, 356, 10, true);
+    txt(f.e, 396, 9.5, false, 0.4);
+    txt(f.l, 436, 9.5, false, 0.4);
+    if(S.scoring === "partidos") txt(f.juego, 478, 9.5, false, 0.4);
     baja(13);
   });
   return pie();
@@ -1983,9 +1997,12 @@ function roundOptions(){
   }
   return o;
 }
+/* Por partidos hace falta que el total sea par, o no puede haber empates. */
+function pointList(){ return S.scoring === "partidos" ? [4, 6, 8] : [3, 4, 5, 7]; }
 function pointOptions(){
-  var o = "";
-  [3, 4, 5, 7].forEach(function(v){
+  var lista = pointList(), o = "";
+  if(lista.indexOf(S.roundPoints) < 0) S.roundPoints = lista[0];
+  lista.forEach(function(v){
     o += '<option value="'+v+'"'+(S.roundPoints===v?" selected":"")+'>'+v+' puntos</option>';
   });
   return o;
@@ -2168,6 +2185,16 @@ function viewSetup(){
           '<label class="lbl" for="pts">Puntos por ronda</label>' +
           '<select class="field" id="pts" data-act="points">'+pointOptions()+'</select>' +
         '</div>' +
+        '<div class="opt-full">' +
+          '<label class="lbl">Cómo se puntúa</label>' +
+          '<div class="seg">' +
+            '<button data-act="scoring" data-v="puntos" aria-pressed="'+(S.scoring!=="partidos")+'">Por puntos</button>' +
+            '<button data-act="scoring" data-v="partidos" aria-pressed="'+(S.scoring==="partidos")+'">Por partidos</button>' +
+          '</div>' +
+          '<p class="hint">'+(S.scoring==="partidos"
+            ? "Ganar vale 2, empatar 1, perder 0. Da igual si ganas "+S.roundPoints+"-0 o "+(S.roundPoints/2+1)+"-"+(S.roundPoints/2-1)+". Si hay empate a puntos, sube quien más puntos hizo en la cancha."
+            : "Cada pareja se lleva los puntos que gana. Ganar "+S.roundPoints+"-0 vale más que ganar "+(S.roundPoints/2+1)+"-"+(S.roundPoints/2-1)+".")+'</p>' +
+        '</div>' +
       '</div>' +
       '<div class="counter" style="margin-top:10px">'+esc(durLine())+'</div>' +
       (roundsNote() ? '<p class="hint">'+esc(roundsNote())+'</p>' : '') +
@@ -2328,6 +2355,7 @@ function viewTabla(){
       '<td class="gana">'+r.g+'</td>' +
       '<td>'+r.e+'</td>' +
       '<td>'+r.l+'</td>' +
+      (S.scoring==="partidos"?'<td>'+r.juego+'</td>':'') +
     '</tr>';
   }).join("");
 
@@ -2335,10 +2363,13 @@ function viewTabla(){
   '<div class="stack" style="padding-top:12px">' +
     champ + progreso +
     '<div class="card"><div class="tablewrap"><table>' +
-      '<thead><tr><th>#</th><th>Jugador</th><th>Pts</th><th>G</th><th>E</th><th>P</th></tr></thead>' +
+      '<thead><tr><th>#</th><th>Jugador</th><th>Pts</th><th>G</th><th>E</th><th>P</th>'+
+        (S.scoring==="partidos"?'<th>Juego</th>':'')+'</tr></thead>' +
       '<tbody>'+rows+'</tbody>' +
     '</table></div></div>' +
-    '<p class="hint">Pts: puntos ganados · G: partidos ganados · E: empatados · P: perdidos. Con los mismos puntos, sube quien ganó más partidos.</p>' +
+    '<p class="hint">'+(S.scoring==="partidos"
+      ? "Pts: 2 por ganar, 1 por empatar · G/E/P: ganados, empatados, perdidos · Juego: puntos hechos en la cancha, que desempatan."
+      : "Pts: puntos ganados · G: partidos ganados · E: empatados · P: perdidos. Con los mismos puntos, sube quien ganó más partidos.")+'</p>' +
   '</div>';
 }
 
@@ -2573,6 +2604,12 @@ document.addEventListener("click", function(e){
   if(act === "rnone"){ clearPicked(); return; }
   if(act === "redit"){ editRoster = !editRoster; render(); return; }
   if(act === "fmt"){ S.format = el.dataset.v; afterSetupChange(); return; }
+  if(act === "scoring"){
+    S.scoring = el.dataset.v;
+    var lista = pointList();
+    if(lista.indexOf(S.roundPoints) < 0) S.roundPoints = lista[0];
+    afterSetupChange(); return;
+  }
   if(act === "start"){ startTournament(); return; }
   if(act === "redraw"){ redrawAll(); return; }
 
