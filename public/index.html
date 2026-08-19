@@ -1011,6 +1011,7 @@ var PROHIBIDO_MIRANDO = {
   rtoggle:1, rdel:1, rall:1, rnone:1, redit:1, next:1
 };
 var soyDueno = -1;              // índice del torneo local si tengo la clave
+var despertar = null;           // reconectar al volver a la app (solo mirando)
 var enHome = true;              // se decide al arrancar, más abajo
 
 var ROUTE = parseRoute();
@@ -1146,7 +1147,7 @@ function fusionarMarcadores(nuevo){
   return cambio;
 }
 function aplicarRemoto(nuevo){
-  if(!nuevo) return;
+  if(!nuevo || !RO || !ROUTE) return;
   normalizeT(nuevo);
   if(RO && ROUTE) recordarSeguido(ROUTE.slug, nuevo.name);
   // Cada uno se queda en la ronda que está anotando, no en la del organizador.
@@ -1249,6 +1250,33 @@ function cerrarWs(){
   clearTimeout(wsTimer);
   if(ws){ var v = ws; ws = null; try{ v.onclose = null; v.close(); }catch(e){} }
 }
+/* Salir del torneo ajeno y cortar TODO lo suyo: websocket, sondeo cada 8 s y
+   los avisos de "volviste a la app". Antes solo se apagaba RO, así que el
+   sondeo seguía trayendo su estado, repintaba encima de lo que estabas
+   escribiendo y te devolvía a su torneo. */
+function dejarDeMirar(){
+  RO = false;
+  ROUTE = null;
+  roLoaded = false;
+  soyDueno = -1;
+  cerrarWs();
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  if(despertar){
+    document.removeEventListener("visibilitychange", despertar);
+    window.removeEventListener("pageshow", despertar);
+    window.removeEventListener("focus", despertar);
+    window.removeEventListener("online", despertar);
+    despertar = null;
+  }
+  setLive("");
+  // Y que al recargar no vuelva a abrirse su torneo.
+  // (window.history a propósito: aquí dentro history() es el historial de
+  //  parejas del sorteo, no el del navegador.)
+  if(location.pathname.indexOf("/t/") === 0){
+    try{ window.history.replaceState(null, "", "/"); }catch(e){}
+  }
+}
+
 function connect(slug){
   if(ws) return;
   try{
@@ -1278,6 +1306,7 @@ function connect(slug){
 }
 /* Por si el websocket no llega (wifi del club, iPhone bloqueado…) */
 function pull(slug){
+  if(!ROUTE) return;               // ya me salí: que no llegue nada más
   fetch("/api/t/" + slug).then(function(r){
     if(!r.ok) throw new Error("404");
     return r.json();
@@ -1909,6 +1938,7 @@ function startTournament(){
    "Mis torneos" pero sobreviva a que el iPhone recargue la app. Antes vivía
    solo en memoria y al volver a la app te encontrabas dentro de otro torneo. */
 function newTournament(){
+  if(RO || ROUTE) dejarDeMirar();
   enHome = false;
   S = freshT(DB.seq);
   DB.draft = S;
@@ -3300,10 +3330,9 @@ document.addEventListener("click", function(e){
   if(RO && PROHIBIDO_MIRANDO[act]) return;      // mirando no se toca nada
 
   if(act === "abrirComoDueno"){
-    RO = false;
-    if(pollTimer) clearInterval(pollTimer);
-    if(ws){ try{ ws.close(); }catch(e){} ws = null; }
-    openT(soyDueno);
+    var mio = soyDueno;
+    dejarDeMirar();
+    openT(mio);
     save(); render();
     toast("Ahora puedes anotar");
     return;
@@ -3340,7 +3369,8 @@ document.addEventListener("click", function(e){
     openT(+el.dataset.i); save(); render(); window.scrollTo({top:0}); return;
   }
   if(act === "homeIr"){
-    enHome = true; RO = false; tab = el.dataset.v;
+    enHome = true; tab = el.dataset.v;
+    if(RO || ROUTE){ dejarDeMirar(); S = DB.draft || DB.tournaments[DB.active] || null; }
     render(); window.scrollTo({top:0}); return;
   }
   if(act === "verTab"){
@@ -3365,13 +3395,18 @@ document.addEventListener("click", function(e){
     return;
   }
   if(act === "inicio"){
-    enHome = true; RO = false; tab = "ronda"; cerrarWs(); setLive("");
+    enHome = true; tab = "ronda"; dejarDeMirar();
+    S = DB.draft || DB.tournaments[DB.active] || null;
     render(); window.scrollTo({top:0}); return;
   }
   if(act === "irClave"){ location.href = "/t/" + el.dataset.c; return; }
   if(act === "olvidar"){
-    DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== el.dataset.c; });
-    save(); render(); return;
+    var cla = el.dataset.c;
+    DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== cla; });
+    // Si es justo el que estoy mirando, hay que soltarlo: si no, el sondeo
+    // lo vuelve a apuntar en dos segundos y parece que la tacha no sirve.
+    if(ROUTE && ROUTE.slug === cla){ dejarDeMirar(); enHome = true; S = DB.draft || DB.tournaments[DB.active] || null; }
+    guardarLocal(); render(); toast("Quitado de la lista"); return;
   }
   if(act === "entrar"){
     var campo = document.getElementById("claveIn");
@@ -3425,7 +3460,10 @@ document.addEventListener("click", function(e){
          el.dataset.l === "adm" ? "Tu enlace copiado" : "Enlace copiado, pásalo al grupo");
     return;
   }
-  if(act === "retry"){ roLoaded = false; render(); pull(ROUTE.slug); connect(ROUTE.slug); return; }
+  if(act === "retry"){
+    if(!ROUTE) return;
+    roLoaded = false; render(); pull(ROUTE.slug); connect(ROUTE.slug); return;
+  }
 });
 
 document.addEventListener("input", function(e){
@@ -3579,8 +3617,9 @@ function arrancar(){
       render();
       pull(ROUTE.slug);
       connect(ROUTE.slug);
-      pollTimer = setInterval(function(){ if(!ws) pull(ROUTE.slug); }, 8000);
-      var despertar = function(){
+      pollTimer = setInterval(function(){ if(ROUTE && !ws) pull(ROUTE.slug); }, 8000);
+      despertar = function(){
+        if(!ROUTE) return;
         if(!document.hidden){ if(!ws) connect(ROUTE.slug); pull(ROUTE.slug); }
       };
       document.addEventListener("visibilitychange", despertar);
