@@ -866,7 +866,8 @@ var VERSION = "1.0";
 var DEFAULT_ROSTER = ["Freddy","Panza","CB9","Juan","Hotch","Pecas","Rafa","Mau","Richi","Diego","Steve","Leo"];
 
 var DB = load() || freshDB();
-var S  = DB.tournaments[DB.active];
+/* El borrador manda: si dejaste un torneo a medio armar, es donde ibas. */
+var S  = DB.draft || DB.tournaments[DB.active];
 var tab = "ronda";
 var editRoster = false;
 
@@ -902,7 +903,7 @@ function freshT(n){
 }
 function freshDB(){
   return { v:2, seq:1, active:0, theme:null, accent:"lima", escala:1,
-           roster:DEFAULT_ROSTER.slice(), tournaments:[], seguidos:[] };
+           roster:DEFAULT_ROSTER.slice(), tournaments:[], seguidos:[], draft:null };
 }
 
 function load(){
@@ -917,6 +918,11 @@ function load(){
         return t.started || t.players.length > 0;
       });
       o.active = Math.max(0, Math.min(o.active || 0, Math.max(0, o.tournaments.length - 1)));
+      // Un borrador sin nadie apuntado no es nada: se tira.
+      if(o.draft){
+        normalizeT(o.draft);
+        if(o.draft.started || !o.draft.players.length) o.draft = null;
+      }
       seedRoster(o);
       if(!Array.isArray(o.seguidos)) o.seguidos = [];
       var limite = Date.now() - 24 * 3600 * 1000;
@@ -980,6 +986,7 @@ function aplicarApariencia(){
 }
 function openT(i){
   cerrarWs();
+  DB.draft = null;                 // abrir un torneo guardado deja el borrador
   if(!DB.tournaments.length){ DB.active = 0; S = null; enHome = true; setLive(""); return; }
   DB.active = Math.max(0, Math.min(i, DB.tournaments.length - 1));
   S = DB.tournaments[DB.active];
@@ -1892,17 +1899,21 @@ function startTournament(){
     DB.active = DB.tournaments.length - 1;
     DB.seq++;
   }
+  DB.draft = null;
   tab = "ronda";                       // se empieza jugando, no mirando el cuadro
   save(); render();
   // La clave se genera al arrancar: no hay que acordarse de publicar nada.
   if(BACKEND === true && !S.remote) publish();
 }
-/* Borrador: vive solo en memoria. Si te vas al inicio sin empezar, se
-   descarta y la lista de torneos no se ensucia. */
+/* Borrador: se guarda aparte de la lista, en DB.draft, para que no ensucie
+   "Mis torneos" pero sobreviva a que el iPhone recargue la app. Antes vivía
+   solo en memoria y al volver a la app te encontrabas dentro de otro torneo. */
 function newTournament(){
   enHome = false;
   S = freshT(DB.seq);
+  DB.draft = S;
   tab = "ronda";
+  guardarLocal();
   render();
   window.scrollTo({ top:0, behavior:"smooth" });
 }
@@ -1919,9 +1930,14 @@ function deleteTournament(i){
     danger: true,
     onOk: function(){
       DB.tournaments.splice(i, 1);
-      if(!DB.tournaments.length) enHome = true;
-      openT(DB.active > i ? DB.active - 1 : DB.active);
-      save(); render();
+      // Vuelves al inicio. Meterte de golpe en otro torneo confundía: parecía
+      // que el borrado no había funcionado.
+      cerrarWs(); setLive("");
+      DB.active = Math.max(0, Math.min(DB.active > i ? DB.active - 1 : DB.active,
+                                       Math.max(0, DB.tournaments.length - 1)));
+      S = DB.tournaments[DB.active] || null;
+      enHome = true; tab = DB.tournaments.length ? "torneos" : "inicio";
+      guardarLocal(); render();
       toast("Torneo eliminado");
     }
   });
@@ -3509,7 +3525,7 @@ document.addEventListener("keydown", function(e){
 /* Si dejaste un torneo a medias, la app abre directamente en su ronda.
    (Esta línea se perdió en una refactorización y la app volvía siempre a
    la portada.) */
-enHome = !(S && S.started && !S.finished);
+enHome = !(S && (S.started ? !S.finished : S.players.length > 0));
 if(!enHome && S && S.remote){
   checkBackend().then(function(hay){
     if(hay){ setLive("on"); connect(S.remote.slug); }
