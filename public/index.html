@@ -165,6 +165,11 @@
   .mark small{
     display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;
     color:var(--muted);text-transform:uppercase;line-height:1;margin-top:1px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  /* La clave, resaltada, para saber de un vistazo en qué torneo estás. */
+  .mark small b{
+    color:var(--ink);font-weight:700;letter-spacing:.14em;
   }
   .theme-btn{
     background:transparent;border:1px solid var(--line);border-radius:9px;
@@ -923,6 +928,7 @@ function load(){
         normalizeT(o.draft);
         if(o.draft.started || !o.draft.players.length) o.draft = null;
       }
+      if(o.ui && typeof o.ui !== "object") o.ui = null;
       seedRoster(o);
       if(!Array.isArray(o.seguidos)) o.seguidos = [];
       var limite = Date.now() - 24 * 3600 * 1000;
@@ -968,6 +974,18 @@ function normalizeT(t){
   if(!t.name) t.name = "Torneo";
   if(!t.id) t.id = uid();
   t.players.forEach(function(p){ delete p.level; });
+}
+/* Dónde estabas mirando. Sin esto, recargar te sacaba de donde ibas: desde
+   el inicio te metía en un torneo, y con varios torneos te abría el que no
+   era. No se guarda mientras miras el torneo de otro. */
+var vistaGuardada = "";
+function recordarVista(){
+  if(RO || ROUTE) return;
+  var v = (enHome ? "h" : "t") + ":" + tab + ":" + DB.active;
+  if(v === vistaGuardada) return;
+  vistaGuardada = v;
+  DB.ui = { home: !!enHome, tab: tab };
+  guardarLocal();
 }
 function guardarLocal(){
   try{ localStorage.setItem(LS, JSON.stringify(DB)); }catch(e){}
@@ -3223,7 +3241,25 @@ function viewLoading(){
     '<h3>Conectando…</h3><p class="hint" style="margin-top:0">Buscando el marcador.</p></div></div>';
 }
 
+/* Debajo del nombre de la app: en qué torneo estás y con qué clave. */
+function pintarSub(){
+  var el = document.getElementById("sub"), p = [];
+  if(S && S.name) p.push(esc(S.name));
+  // Al mirar el de otro no hay S.remote (la clave secreta nunca sale de su
+  // teléfono), pero la clave pública es la de la ruta.
+  var clave = (S && S.remote) ? S.remote.slug : (ROUTE ? ROUTE.slug : null);
+  if(clave) p.push('clave <b>' + esc(clave) + '</b>');
+  if(S && S.started && S.rounds.length){
+    p.push("ronda " + (Math.min(S.cur, S.rounds.length - 1) + 1) + " de " + S.rounds.length);
+  }else if(S){
+    var n = S.players.filter(function(x){ return x.active !== false; }).length;
+    p.push(n + (n === 1 ? " jugador" : " jugadores"));
+  }
+  el.innerHTML = p.join(" · ");
+}
+
 function render(){
+  recordarVista();
   var view   = document.getElementById("view");
   var tabsEl = document.getElementById("tabs");
   document.body.classList.toggle("ro", !!RO);
@@ -3265,8 +3301,7 @@ function render(){
                                tab === "cuadro" ? viewCuadro() :
                                tab === "ajustes" ? viewAjustes() : viewTabla());
     pintarBarra("torneo");
-    document.getElementById("sub").textContent =
-      S.players.length + " jugadores · ronda " + (S.cur + 1) + " de " + S.rounds.length;
+    pintarSub();
     return;
   }
 
@@ -3314,9 +3349,7 @@ function render(){
   pintarBarra("torneo");
 
   var act = actives().length;
-  document.getElementById("sub").textContent =
-    S.format + " · " + act + (act === 1 ? " jugador" : " jugadores") +
-    (S.started ? " · ronda " + (S.cur + 1) : "");
+  pintarSub();
 
   // Devolvemos el foco y el cursor a la casilla donde se estaba escribiendo.
   if(focusKey){
@@ -3589,6 +3622,14 @@ document.addEventListener("keydown", function(e){
    (Esta línea se perdió en una refactorización y la app volvía siempre a
    la portada.) */
 enHome = !(S && (S.started ? !S.finished : S.players.length > 0));
+// Recargar la página te deja donde estabas, no donde la app suponga.
+if(!ROUTE && DB.ui){
+  enHome = !!DB.ui.home;
+  if(DB.ui.tab) tab = DB.ui.tab;
+  if(!S) enHome = true;                       // no hay nada que abrir
+  if(enHome && ["inicio","torneos","ajustes"].indexOf(tab) < 0) tab = "inicio";
+  if(!enHome && ["ronda","cuadro","tabla","ajustes"].indexOf(tab) < 0) tab = "ronda";
+}
 // Con ROUTE estoy abriendo el enlace de OTRO torneo: ni se mira lo mío.
 // Reconectar aquí abría el websocket de mi torneo y, como connect() no abre
 // un segundo, el marcador "en vivo" del ajeno era en realidad el mío.

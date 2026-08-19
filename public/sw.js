@@ -1,6 +1,6 @@
 /* Padelito — caché mínima para que la app abra aunque el wifi del club falle.
    El marcador en vivo necesita red; esto solo guarda la app en sí. */
-const CACHE = "padelito-v33";
+const CACHE = "padelito-v34";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon-180.png"];
 
 self.addEventListener("install", (e) => {
