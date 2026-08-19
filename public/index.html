@@ -402,6 +402,8 @@
   .firma-pie{
     margin-top:16px;font-family:var(--f-mono);font-size:10.5px;color:var(--muted);
   }
+  .nombres{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .nombres .field{padding:9px 11px;font-size:15px}
   .colores{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .col-op{
     border:1px solid var(--line);background:var(--card);border-radius:11px;cursor:pointer;
@@ -734,9 +736,6 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   .tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 6px}
-  /* El espectador no tiene inicio: no es su app. */
-  body.ro .tabs-in{grid-template-columns:repeat(3,1fr)}
-  body.ro .tab-inicio{display:none}
   .tab-inicio .ic{font-size:19px}
   /* Compartir vive arriba a la derecha, junto al tema. */
   .theme-btn.on{background:var(--ball);border-color:var(--ball-strong);color:var(--ball-ink)}
@@ -1313,7 +1312,7 @@ function rosterAdd(nm){
   nm = String(nm||"").trim().replace(/\s+/g," ").slice(0,18);
   if(nm && !DB.roster.some(function(r){ return sameName(r, nm); })) DB.roster.push(nm);
 }
-function nameOf(id){ var p = byId(id); return p ? p.name : "?"; }
+function nameOf(id){ var p = byId(id); return p ? (p.name || "Sin nombre") : "?"; }
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
 function actives(){ return S.players.filter(function(p){ return p.active; }); }
@@ -2906,12 +2905,29 @@ function viewAjustes(){
         '</div>' +
         '<label class="lbl" style="margin-top:16px" for="tname">Nombre del torneo</label>' +
         '<input class="field" id="tname" value="'+esc(S.name)+'" maxlength="24" data-act="rename" autocomplete="off">' +
+        '<label class="lbl" style="margin-top:14px" for="pts2">Puntos por ronda</label>' +
+        '<select class="field" id="pts2" data-act="points">'+pointOptions()+'</select>' +
+        (S.rounds.some(sumaMal)
+          ? '<p class="warn">Hay marcadores que ya no suman '+S.roundPoints+'. Salen en rojo en la ronda, corrígelos.</p>'
+          : '<p class="hint">Cambiarlo no toca lo ya anotado: si algún marcador deja de cuadrar, te lo marca en rojo.</p>') +
         '<div class="counter" style="margin-top:10px">'+esc(setupLine())+'</div>' +
         '<div class="counter" style="margin-top:3px">'+esc(durLine())+' · '+esc(nombreFormato())+'</div>' +
         '<button class="btn btn-wide" data-act="'+(S.finished?"reopen":"finish")+'" style="margin-top:14px">' +
           (S.finished ? "Reabrir torneo" : "Cerrar torneo ya") + '</button>' +
         '<button class="btn btn-danger btn-wide" data-act="delT" data-i="'+DB.active+'" style="margin-top:10px">' +
           'Eliminar este torneo</button>' +
+      '</div>'
+    : "";
+
+  var jugadores = (hayTorneo && !RO)
+    ? '<div class="card box">' +
+        '<h3>Jugadores<span class="side-note">'+S.players.length+'</span></h3>' +
+        '<div class="nombres">' + S.players.map(function(p){
+          return '<input class="field" value="'+esc(p.name)+'" maxlength="18" ' +
+            'data-act="renombrar" data-id="'+p.id+'" autocomplete="off" ' +
+            'aria-label="Nombre de '+esc(p.name)+'">';
+        }).join("") + '</div>' +
+        '<p class="hint">Corrige un nombre mal escrito. El cambio se ve al instante en el cuadro, la tabla y en el móvil de los demás.</p>' +
       '</div>'
     : "";
 
@@ -2964,7 +2980,7 @@ function viewAjustes(){
 
   return '' +
   '<div class="stack" style="padding-top:12px">' +
-    torneo + compartir + apariencia + idioma + acerca +
+    torneo + jugadores + compartir + apariencia + idioma + acerca +
     (enHome
       ? '<button class="btn btn-wide" data-act="inicio">Inicio</button>'
       : (!S || !S.started)
@@ -3414,6 +3430,11 @@ document.addEventListener("input", function(e){
     if(el.value !== lim) el.value = lim;
     return;
   }
+  if(el.dataset.act === "renombrar"){
+    var jug = byId(el.dataset.id);
+    if(jug){ jug.name = el.value.slice(0, 18); save(); }
+    return;
+  }
   if(el.dataset.act === "rename"){
     S.name = el.value.trim() || "Torneo";
     save();
@@ -3441,7 +3462,9 @@ document.addEventListener("change", function(e){
   }
   if(el.dataset.act === "points"){
     S.roundPoints = parseInt(el.value, 10) || 5;
-    afterSetupChange(); return;
+    if(S.started){ save(); render(); }   // el cuadro ya está hecho: solo cambia el tope
+    else afterSetupChange();
+    return;
   }
   if(el.dataset.act === "courts"){
     if(el.value === "auto"){ S.courtsAuto = true; }
