@@ -1009,6 +1009,10 @@ function openT(i){
   DB.active = Math.max(0, Math.min(i, DB.tournaments.length - 1));
   S = DB.tournaments[DB.active];
   tab = "ronda";
+  enHome = false;                  // abrir un torneo es entrar en él: con el
+                                   // enlace de administrador en un teléfono
+                                   // nuevo se quedaba en la portada
+
   if(S.remote && BACKEND === true){ setLive("on"); connect(S.remote.slug); }
 }
 
@@ -1025,7 +1029,7 @@ function openT(i){
    solo del organizador, que es quien tiene el enlace con su clave secreta. */
 var PROHIBIDO_MIRANDO = {
   add:1, del:1, fmt:1, start:1, redraw:1, finish:1, reopen:1, finalizar:1,
-  newT:1, delT:1, switchT:1, publish:1, unpublish:1, rename:1,
+  newT:1, delT:1, switchT:1, publish:1, rename:1,
   rtoggle:1, rdel:1, rall:1, rnone:1, redit:1, next:1
 };
 var soyDueno = -1;              // índice del torneo local si tengo la clave
@@ -1037,6 +1041,7 @@ var BACKEND = null;          // null = sin comprobar · false = alojamiento est�
 var RO = false;              // modo espectador
 var roLoaded = false;
 var errBackend = false;         // el fallo fue del servidor, no del torneo
+var borrado = false;            // el organizador lo eliminó mientras mirabas
 var ws = null, wsTimer = null, pollTimer = null, pushTimer = null;
 var wsSlug = null;              // de qué torneo es el socket abierto
 
@@ -1229,6 +1234,13 @@ function push(now){
       body: JSON.stringify({ key: S.remote.key, data: payload() })
     }).then(function(r){
       if(r.status === 403){ setLive("off"); toast("Ese enlace ya tiene otro organizador"); return; }
+      if(r.status === 410){                        // lo eliminaron desde otro teléfono
+        var j = DB.tournaments.indexOf(S);
+        cerrarWs();
+        if(j >= 0){ quitarLocal(j); }
+        toast("Este torneo se eliminó desde otro teléfono");
+        return;
+      }
       setLive(r.ok ? "on" : "off");
     }).catch(function(){ setLive("off"); });
   }, now ? 0 : 220);
@@ -1240,7 +1252,7 @@ function publish(){
   (function probar(){
     var c = nuevaClave();
     fetch("/api/t/" + c, { cache:"no-store" }).then(function(r){
-      if(r.status === 404){                    // libre
+      if(r.status === 404){                    // libre (410 = eliminada, no se reutiliza)
         S.remote = { slug:c, key:randHex(16) };
         save(); push(true); connect(c); render();
         toast("Clave del torneo: " + c);
@@ -1252,19 +1264,14 @@ function publish(){
     }).catch(function(){ toast("Sin conexión"); });
   })();
 }
-function stopSharing(){
-  ask({
-    title: "Dejar de compartir",
-    body: "Se borra el marcador del servidor y el enlace deja de funcionar. El torneo se queda en este teléfono.",
-    ok: "Dejar de compartir", danger: true,
-    onOk: function(){
-      var slug = S.remote.slug, key = S.remote.key;
-      fetch("/api/t/" + slug + "?k=" + encodeURIComponent(key), { method: "DELETE" }).catch(function(){});
-      delete S.remote;
-      setLive("");
-      save(); render();
-    }
-  });
+/* Borrar del servidor: la clave deja de existir y a quien lo esté mirando se
+   le cierra al instante. Solo puede hacerlo quien tiene la llave. */
+function borrarDelServidor(t){
+  if(!t || !t.remote) return Promise.resolve(true);
+  return fetch("/api/t/" + t.remote.slug + "?k=" + encodeURIComponent(t.remote.key),
+               { method: "DELETE" })
+    .then(function(r){ return r.ok || r.status === 404; })   // ya no estaba: igual de bien
+    .catch(function(){ return false; });
 }
 function cerrarWs(){
   clearTimeout(wsTimer);
@@ -1316,8 +1323,13 @@ function connect(slug){
       // Organizador: solo recoge los marcadores; el torneo es suyo.
       if(fusionarMarcadores(m.data)){ guardarLocal(); render(); }
       setLive("on");
-    }else if(m.type === "deleted" && RO){
-      setLive("off"); toast("El organizador dejó de compartir este marcador");
+    }else if(m.type === "deleted"){
+      if(RO){ torneoBorrado(); return; }
+      // Lo eliminaron desde otro teléfono con el enlace de administrador.
+      var i = DB.tournaments.indexOf(S);
+      cerrarWs();
+      if(i >= 0){ quitarLocal(i); }
+      toast("Este torneo se eliminó desde otro teléfono");
     }
   };
   ws.onerror = function(){ try{ ws.close(); }catch(e){} };
@@ -1328,14 +1340,32 @@ function connect(slug){
   };
 }
 /* Por si el websocket no llega (wifi del club, iPhone bloqueado…) */
+/* El organizador lo eliminó: ni marcador ni clave. Se le cierra a quien mira
+   y se quita de "Torneos que sigo" para que no quede un enlace muerto. */
+function torneoBorrado(){
+  if(borrado) return;
+  borrado = true;
+  var clave = ROUTE && ROUTE.slug;
+  cerrarWs();
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  if(clave){
+    DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== clave; });
+    guardarLocal();
+  }
+  roLoaded = "error"; errBackend = false;
+  setLive("off");
+  render();
+}
 function pull(slug){
-  if(!ROUTE) return;               // ya me salí: que no llegue nada más
+  if(!ROUTE || borrado) return;    // ya me salí, o ya no existe
   fetch("/api/t/" + slug).then(function(r){
-    if(!r.ok) throw new Error("404");
+    if(r.status === 404 || r.status === 410){ torneoBorrado(); throw new Error("borrado"); }
+    if(!r.ok) throw new Error("error");
     return r.json();
   }).then(function(j){
     aplicarRemoto(j.data);
-  }).catch(function(){
+  }).catch(function(e){
+    if(borrado) return;
     if(!roLoaded){
       roLoaded = "error"; render();
     }
@@ -1974,26 +2004,41 @@ function deleteTournament(i){
   var t = DB.tournaments[i];
   if(!t) return;
   var jugado = t.rounds.some(roundDoneAny);
+  var cuerpo = t.remote
+    ? "La clave " + t.remote.slug + " deja de funcionar y a todos los que lo estén viendo se les cierra. " +
+      (jugado ? "También se borra de este teléfono con su tabla. " : "") + "No se puede deshacer."
+    : (jugado
+        ? "Se borran sus " + t.rounds.length + " rondas y su tabla de puntos. No se puede deshacer."
+        : "Todavía no tiene resultados anotados.");
   ask({
     title: "¿Eliminar «" + t.name + "»?",
-    body: jugado
-      ? "Se borran sus " + t.rounds.length + " rondas y su tabla de puntos. No se puede deshacer."
-      : "Todavía no tiene resultados anotados.",
+    body: cuerpo,
     ok: "Eliminar",
     danger: true,
     onOk: function(){
-      DB.tournaments.splice(i, 1);
-      // Vuelves al inicio. Meterte de golpe en otro torneo confundía: parecía
-      // que el borrado no había funcionado.
-      cerrarWs(); setLive("");
-      DB.active = Math.max(0, Math.min(DB.active > i ? DB.active - 1 : DB.active,
-                                       Math.max(0, DB.tournaments.length - 1)));
-      S = DB.tournaments[DB.active] || null;
-      enHome = true; tab = DB.tournaments.length ? "torneos" : "inicio";
-      guardarLocal(); render();
-      toast("Torneo eliminado");
+      if(!t.remote){ quitarLocal(i); toast("Torneo eliminado"); return; }
+      // Primero el servidor. Si falla no se borra nada: si no, la clave se
+      // quedaría viva para siempre sin nadie que pudiera matarla.
+      toast("Eliminando…");
+      borrarDelServidor(t).then(function(bien){
+        if(!bien){ toast("Sin conexión: inténtalo con wifi"); return; }
+        quitarLocal(DB.tournaments.indexOf(t));
+        toast("Eliminado para todos");
+      });
     }
   });
+}
+function quitarLocal(i){
+  if(i < 0) return;
+  DB.tournaments.splice(i, 1);
+      // Vuelves al inicio. Meterte de golpe en otro torneo confundía: parecía
+      // que el borrado no había funcionado.
+  cerrarWs(); setLive("");
+  DB.active = Math.max(0, Math.min(DB.active > i ? DB.active - 1 : DB.active,
+                                   Math.max(0, DB.tournaments.length - 1)));
+  S = DB.tournaments[DB.active] || null;
+  enHome = true; tab = DB.tournaments.length ? "torneos" : "inicio";
+  vistaGuardada = ""; guardarLocal(); render();
 }
 /* Solo en mexicano: la ronda siguiente depende de cómo quedó la tabla, así
    que se sortea al cerrar la anterior en vez de tenerlo todo hecho. */
@@ -2983,8 +3028,15 @@ function viewAjustes(){
         '<div class="counter" style="margin-top:3px">'+esc(durLine())+' · '+esc(nombreFormato())+'</div>' +
         '<button class="btn btn-wide" data-act="'+(S.finished?"reopen":"finish")+'" style="margin-top:14px">' +
           (S.finished ? "Reabrir torneo" : "Cerrar torneo ya") + '</button>' +
-        '<button class="btn btn-danger btn-wide" data-act="delT" data-i="'+DB.active+'" style="margin-top:10px">' +
+        '<p class="hint">Congela el marcador y saca el podio. Los resultados se siguen viendo con la clave.</p>' +
+        (S.remote
+          ? '<label class="lbl" style="margin-top:16px">Administrador</label>' +
+            '<button class="btn btn-wide" data-act="copyLink" data-l="adm">Pasar el administrador</button>' +
+            '<p class="warn">Copia un enlace y ábrelo en el otro teléfono: quien lo tenga manda el torneo (nombres, puntos, cerrarlo y eliminarlo). Guárdalo por si pierdes este.</p>'
+          : '') +
+        '<button class="btn btn-danger btn-wide" data-act="delT" data-i="'+DB.active+'" style="margin-top:16px">' +
           'Eliminar este torneo</button>' +
+        '<p class="hint">Se borra para todos: la clave deja de funcionar.</p>' +
       '</div>'
     : "";
 
@@ -3063,7 +3115,7 @@ function shareCard(){
   if(!S.remote){
     return '<div class="card box">' +
       '<h3>Marcador en vivo</h3>' +
-      '<p class="hint" style="margin-top:0">Publica el marcador y pasa el enlace al grupo. Cada uno lo abre en su iPhone y ve el cuadro y la tabla actualizándose solos. Solo tú puedes anotar.</p>' +
+      '<p class="hint" style="margin-top:0">Publica el marcador y pasa la clave al grupo. Cada uno la abre en su iPhone y ve el cuadro y la tabla actualizándose solos, y puede anotar los de su cancha.</p>' +
       '<button class="btn btn-primary btn-wide" data-act="publish" style="margin-top:12px">Publicar marcador</button>' +
     '</div>';
   }
@@ -3080,11 +3132,7 @@ function shareCard(){
       '<button class="btn grow" data-act="copyClave">Copiar clave</button>' +
       '<button class="btn grow" data-act="copyLink" data-l="pub">Copiar enlace</button>' +
     '</div>' +
-    '<p class="hint">Con la clave entran desde la portada, o con el enlace directo. Solo pueden mirar.</p>' +
-    '<label class="lbl" style="margin-top:16px">Tu enlace · con este anotas tú</label>' +
-    '<button class="link" data-act="copyLink" data-l="adm">'+esc(adminLink())+'</button>' +
-    '<p class="warn">No pases este segundo: quien lo tenga puede cambiar los marcadores.</p>' +
-    '<button class="btn btn-danger btn-wide" data-act="unpublish" style="margin-top:14px">Dejar de compartir</button>' +
+    '<p class="hint">Con la clave entran desde la portada, o con el enlace directo. Ven el marcador en vivo y pueden anotar los de su cancha; el torneo lo sigues mandando tú.</p>' +
   '</div>';
 }
 
@@ -3224,6 +3272,15 @@ function viewTorneos(){
 }
 
 function viewLoading(){
+  if(borrado){
+    return '<div class="stack" style="padding-top:24px">' +
+      '<div class="card box">' +
+        '<h3>Este torneo ya no existe</h3>' +
+        '<p class="hint" style="margin-top:0">El organizador lo eliminó' +
+          (ROUTE ? ', y la clave <b>'+esc(ROUTE.slug)+'</b> ya no funciona' : '') + '.</p>' +
+        '<button class="btn btn-primary btn-wide" data-act="salirRuta" style="margin-top:12px">Ir al inicio</button>' +
+      '</div></div>';
+  }
   if(roLoaded === "error"){
     return '<div class="stack" style="padding-top:24px">' +
       '<div class="card box">' +
@@ -3497,12 +3554,11 @@ document.addEventListener("click", function(e){
   if(act === "tablaImg"){ compartirTabla(); return; }
 
   if(act === "publish"){ publish(); return; }
-  if(act === "unpublish"){ stopSharing(); return; }
   if(act === "ocultarClave"){ S.claveOculta = true; save(); render(); return; }
   if(act === "copyClave"){ copy(S.remote.slug, "Clave copiada: " + S.remote.slug); return; }
   if(act === "copyLink"){
     copy(el.dataset.l === "adm" ? adminLink() : publicLink(),
-         el.dataset.l === "adm" ? "Tu enlace copiado" : "Enlace copiado, pásalo al grupo");
+         el.dataset.l === "adm" ? "Enlace de administrador copiado" : "Enlace copiado, pásalo al grupo");
     return;
   }
   if(act === "retry"){
@@ -3518,7 +3574,8 @@ document.addEventListener("click", function(e){
   }
   if(act === "salirRuta"){
     dejarDeMirar();
-    enHome = true; tab = "torneos";
+    enHome = true; tab = borrado ? "inicio" : "torneos";
+    borrado = false;
     S = DB.draft || DB.tournaments[DB.active] || null;
     render(); return;
   }

@@ -8,6 +8,12 @@
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
+/* Responder a una petición con cuerpo sin leerlo revienta el runtime
+   ("Can't read from request stream after response has been sent"). */
+async function eliminado(req){
+  try { await req.text(); } catch (e) { /* da igual, solo hay que vaciarlo */ }
+  return json({ error: "eliminado" }, 410);
+}
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
@@ -32,7 +38,13 @@ export class Tournament {
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
+    // Una clave eliminada queda muerta para siempre: ni se lee, ni se anota,
+    // ni se puede reclamar de nuevo. Sin esta lápida, deleteAll() borraba
+    // también la llave y el siguiente PUT resucitaba el torneo.
+    const gone = await this.ctx.storage.get("gone");
+
     if (req.method === "GET") {
+      if (gone) return json({ error: "eliminado" }, 410);
       const data = await this.ctx.storage.get("data");
       if (!data) return json({ error: "no existe" }, 404);
       return json({ data, updated: (await this.ctx.storage.get("updated")) || 0 });
@@ -43,6 +55,7 @@ export class Tournament {
        cancha. Solo toca ese partido: así dos personas anotando a la vez
        no se pisan, cosa que sí pasaría mandando el torneo entero. */
     if (url.pathname.endsWith("/marcador") && req.method === "POST") {
+      if (gone) return eliminado(req);
       let b;
       try { b = await req.json(); } catch (e) { return json({ error: "json inválido" }, 400); }
 
@@ -72,6 +85,7 @@ export class Tournament {
     }
 
     if (req.method === "PUT") {
+      if (gone) return eliminado(req);
       let body;
       try {
         body = await req.json();
@@ -97,10 +111,12 @@ export class Tournament {
     }
 
     if (req.method === "DELETE") {
+      if (gone) return json({ ok: true });          // ya estaba eliminado
       const key = url.searchParams.get("k") || "";
       const meta = await this.ctx.storage.get("meta");
       if (!meta || meta.key !== key) return json({ error: "no autorizado" }, 403);
       await this.ctx.storage.deleteAll();
+      await this.ctx.storage.put("gone", Date.now());
       this.broadcast(JSON.stringify({ type: "deleted" }));
       return json({ ok: true });
     }
@@ -108,6 +124,7 @@ export class Tournament {
     return json({ error: "método no soportado" }, 405);
   }
 
+  // El runtime protesta si respondes sin leer el cuerpo de la petición.
   broadcast(msg) {
     for (const ws of this.ctx.getWebSockets()) {
       try { ws.send(msg); } catch (e) { /* conexión muerta, se limpia sola */ }
