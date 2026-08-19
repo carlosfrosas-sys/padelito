@@ -3503,12 +3503,28 @@ document.addEventListener("click", function(e){
   }
   if(act === "irClave"){ location.href = "/t/" + el.dataset.c; return; }
   if(act === "olvidar"){
+    // Se pregunta igual que al eliminar uno propio: una tacha nunca borra nada
+    // de golpe. Aquí el torneo no es mío, así que solo se va de este teléfono.
     var cla = el.dataset.c;
-    DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== cla; });
-    // Si es justo el que estoy mirando, hay que soltarlo: si no, el sondeo
-    // lo vuelve a apuntar en dos segundos y parece que la tacha no sirve.
-    if(ROUTE && ROUTE.slug === cla){ dejarDeMirar(); enHome = true; S = DB.draft || DB.tournaments[DB.active] || null; }
-    guardarLocal(); render(); toast("Quitado de la lista"); return;
+    var seg = (DB.seguidos || []).filter(function(x){ return x.clave === cla; })[0];
+    ask({
+      title: "¿Eliminar «" + ((seg && seg.nombre) || cla) + "»?",
+      body: "Se quita de este teléfono. El torneo no es tuyo, así que sigue existiendo: " +
+            "con la clave " + cla + " puedes volver a entrar cuando quieras.",
+      ok: "Eliminar",
+      danger: true,
+      onOk: function(){
+        DB.seguidos = (DB.seguidos || []).filter(function(x){ return x.clave !== cla; });
+        // Si es justo el que estoy mirando, hay que soltarlo: si no, el sondeo
+        // lo vuelve a apuntar en dos segundos y parece que la tacha no sirve.
+        if(ROUTE && ROUTE.slug === cla){
+          dejarDeMirar(); enHome = true;
+          S = DB.draft || DB.tournaments[DB.active] || null;
+        }
+        guardarLocal(); render(); toast("Quitado de la lista");
+      }
+    });
+    return;
   }
   if(act === "entrar"){
     var campo = document.getElementById("claveIn");
