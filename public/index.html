@@ -964,8 +964,11 @@ function normalizeT(t){
   if(!t.id) t.id = uid();
   t.players.forEach(function(p){ delete p.level; });
 }
-function save(){
+function guardarLocal(){
   try{ localStorage.setItem(LS, JSON.stringify(DB)); }catch(e){}
+}
+function save(){
+  guardarLocal();
   if(!RO && S && S.remote) push(false);
 }
 /* Apariencia: tema, color de acento y tamaño de letra. */
@@ -977,10 +980,12 @@ function aplicarApariencia(){
   if(v) v.style.zoom = (DB.escala && DB.escala !== 1) ? DB.escala : "";
 }
 function openT(i){
-  if(!DB.tournaments.length){ DB.active = 0; S = null; enHome = true; return; }
+  cerrarWs();
+  if(!DB.tournaments.length){ DB.active = 0; S = null; enHome = true; setLive(""); return; }
   DB.active = Math.max(0, Math.min(i, DB.tournaments.length - 1));
   S = DB.tournaments[DB.active];
   tab = "ronda";
+  if(S.remote && BACKEND === true){ setLive("on"); connect(S.remote.slug); }
 }
 
 /* ============================================================
@@ -991,9 +996,12 @@ function openT(i){
    ============================================================ */
 /* Acciones que modifican el torneo. En modo espectador se bloquean en seco,
    aunque por un error de pintado llegara a aparecer el botón. */
+/* Con la clave se puede anotar, moverse por las rondas y sacar la hoja.
+   El torneo en sí —jugadores, ajustes, cerrarlo, borrarlo— sigue siendo
+   solo del organizador, que es quien tiene el enlace con su clave secreta. */
 var PROHIBIDO_MIRANDO = {
-  add:1, del:1, fmt:1, start:1, redraw:1, prev:1, nextR:1, goto:1, bump:1,
-  finish:1, reopen:1, newT:1, delT:1, switchT:1, publish:1, unpublish:1,
+  add:1, del:1, fmt:1, start:1, redraw:1, finish:1, reopen:1, finalizar:1,
+  newT:1, delT:1, switchT:1, publish:1, unpublish:1, rename:1,
   rtoggle:1, rdel:1, rall:1, rnone:1, redit:1, next:1
 };
 var soyDueno = -1;              // índice del torneo local si tengo la clave
@@ -1112,10 +1120,41 @@ function recordarSeguido(clave, nombre){
   DB.seguidos = DB.seguidos.slice(0, 8);
   try{ localStorage.setItem(LS, JSON.stringify(DB)); }catch(e){}
 }
+/* Trae los marcadores de fuera sin tocar nada más del torneo, y sin pisar
+   la casilla en la que se esté escribiendo. */
+function fusionarMarcadores(nuevo){
+  if(!S || !nuevo || !Array.isArray(nuevo.rounds)) return false;
+  var foco = document.activeElement;
+  var editando = (foco && foco.dataset && foco.dataset.sc !== undefined) ? +foco.dataset.m : -1;
+  var cambio = false;
+  nuevo.rounds.forEach(function(r, ri){
+    var mia = S.rounds[ri];
+    if(!mia || !r.matches) return;
+    r.matches.forEach(function(m, mi){
+      var mm = mia.matches[mi];
+      if(!mm) return;
+      if(ri === S.cur && mi === editando) return;
+      if(mm.sa !== m.sa || mm.sb !== m.sb){ mm.sa = m.sa; mm.sb = m.sb; cambio = true; }
+    });
+  });
+  return cambio;
+}
 function aplicarRemoto(nuevo){
   if(!nuevo) return;
   normalizeT(nuevo);
   if(RO && ROUTE) recordarSeguido(ROUTE.slug, nuevo.name);
+  // Cada uno se queda en la ronda que está anotando, no en la del organizador.
+  var miRonda = (RO && S && typeof S.cur === "number") ? S.cur : null;
+  if(miRonda !== null && nuevo.rounds) nuevo.cur = Math.min(miRonda, nuevo.rounds.length - 1);
+  // Si estoy escribiendo en una casilla, no me pises lo tecleado.
+  var foco = document.activeElement;
+  if(RO && foco && foco.dataset && foco.dataset.sc !== undefined && S){
+    var mi = +foco.dataset.m, vr = S.rounds[S.cur], nr = nuevo.rounds[nuevo.cur];
+    if(vr && nr && vr.matches[mi] && nr.matches[mi]){
+      nr.matches[mi].sa = vr.matches[mi].sa;
+      nr.matches[mi].sb = vr.matches[mi].sb;
+    }
+  }
   flash = diffMarcadores(S, nuevo);
   S = nuevo;
   roLoaded = true;
@@ -1123,6 +1162,34 @@ function aplicarRemoto(nuevo){
   render();
   clearTimeout(flashT);
   flashT = setTimeout(function(){ flash = {}; }, 1200);   // sin repintar: la animación ya acabó
+}
+
+/* El invitado no manda el torneo entero: solo el marcador que tocó. */
+var marcadorTimer = null, marcadorCola = {};
+function slugActual(){
+  if(RO) return ROUTE && ROUTE.slug;
+  return (S && S.remote) ? S.remote.slug : null;
+}
+function enviarMarcador(mi){
+  var slug = slugActual();
+  if(!slug) return;
+  marcadorCola[S.cur + "-" + mi] = { r:S.cur, m:mi };
+  clearTimeout(marcadorTimer);
+  marcadorTimer = setTimeout(function(){
+    var pend = marcadorCola; marcadorCola = {};
+    Object.keys(pend).forEach(function(k){
+      var p = pend[k], rd = S.rounds[p.r], mt = rd && rd.matches[p.m];
+      if(!mt) return;
+      fetch("/api/t/" + slug + "/marcador", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ r:p.r, m:p.m, sa:mt.sa, sb:mt.sb })
+      }).then(function(r){
+        if(r.status === 409){ toast("El organizador ya cerró el torneo"); }
+        setLive(r.ok ? "on" : "off");
+      }).catch(function(){ setLive("off"); });
+    });
+  }, 220);
 }
 
 function push(now){
@@ -1140,7 +1207,7 @@ function push(now){
   }, now ? 0 : 220);
 }
 function publish(){
-  if(S.remote){ push(true); render(); return; }
+  if(S.remote){ push(true); connect(S.remote.slug); render(); return; }
   var intentos = 0;
   toast("Generando clave…");
   (function probar(){
@@ -1148,7 +1215,7 @@ function publish(){
     fetch("/api/t/" + c, { cache:"no-store" }).then(function(r){
       if(r.status === 404){                    // libre
         S.remote = { slug:c, key:randHex(16) };
-        save(); push(true); render();
+        save(); push(true); connect(c); render();
         toast("Clave del torneo: " + c);
       }else if(++intentos < 6){
         probar();                              // ocupada, probamos otra
@@ -1172,6 +1239,10 @@ function stopSharing(){
     }
   });
 }
+function cerrarWs(){
+  clearTimeout(wsTimer);
+  if(ws){ var v = ws; ws = null; try{ v.onclose = null; v.close(); }catch(e){} }
+}
 function connect(slug){
   if(ws) return;
   try{
@@ -1184,6 +1255,10 @@ function connect(slug){
     var m; try{ m = JSON.parse(e.data); }catch(err){ return; }
     if(m.type === "state" && RO){
       aplicarRemoto(m.data);
+    }else if(m.type === "state"){
+      // Organizador: solo recoge los marcadores; el torneo es suyo.
+      if(fusionarMarcadores(m.data)){ guardarLocal(); render(); }
+      setLive("on");
     }else if(m.type === "deleted" && RO){
       setLive("off"); toast("El organizador dejó de compartir este marcador");
     }
@@ -1895,7 +1970,11 @@ function setScore(mi, side, raw){
   }else{
     m.sb = v; m.sa = (v === null) ? null : S.roundPoints - v;
   }
-  save();
+  /* Los marcadores nunca viajan dentro del torneo entero: van por su
+     propia ruta. Si no, el organizador pisaría lo que acaba de anotar un
+     invitado, y al revés. */
+  guardarLocal();
+  enviarMarcador(mi);
 }
 function bump(mi, side, d){
   var m = S.rounds[S.cur].matches[mi];
@@ -2470,7 +2549,7 @@ function roundCard(r, ri, interactive){
       '<span class="n">Ronda '+(ri+1)+'</span>' +
       (interactive
         ? '<span class="t">'+(roundDone(r)?"completa":"pendiente")+'</span>' +
-          (RO ? '' : '<button class="btn btn-sm btn-ghost" data-act="goto" data-r="'+ri+'" style="padding:3px 10px">Anotar</button>')
+          '<button class="btn btn-sm btn-ghost" data-act="goto" data-r="'+ri+'" style="padding:3px 10px">Anotar</button>'
         : '') +
     '</div>' + fx + rest +
   '</div>';
@@ -2656,15 +2735,6 @@ function viewRonda(){
     var etiqueta = sumaMal(m) ? '<span class="t mal">no suma '+S.roundPoints+'</span>'
                               : '<span class="t">'+S.roundPoints+' puntos</span>';
 
-    if(RO){
-      return '<div class="court">' +
-        '<div class="court-head"><span class="n">Cancha '+(i+1)+'</span>' +
-          '<span class="t">'+(has ? "final" : "en juego")+'</span></div>' +
-        lado(m.a, m.sa, has && m.sa > m.sb, "a") +
-        '<div class="net" aria-hidden="true"></div>' +
-        lado(m.b, m.sb, has && m.sb > m.sa, "b") +
-      '</div>';
-    }
     return '<div class="court">' +
       '<div class="court-head"><span class="n">Cancha '+(i+1)+'</span>' + etiqueta + '</div>' +
       ladoEdit("a", m.a, m.sa, has && m.sa > m.sb) +
@@ -2710,9 +2780,9 @@ function viewRonda(){
   '<div class="stack" style="padding-top:12px">' +
     avisoClave +
     '<div class="rnav">' +
-      (RO ? '' : '<button class="nav-btn" data-act="prev"'+(S.cur>0?"":" disabled")+' aria-label="Ronda anterior">‹</button>') +
+      '<button class="nav-btn" data-act="prev"'+(S.cur>0?"":" disabled")+' aria-label="Ronda anterior">‹</button>' +
       '<div class="t">Ronda '+(S.cur+1)+'<small>de '+S.rounds.length+' · '+(done?"completa":"en juego")+'</small></div>' +
-      (RO ? '' : '<button class="nav-btn" data-act="nextR"'+(S.cur<S.rounds.length-1?"":" disabled")+' aria-label="Ronda siguiente">›</button>') +
+      '<button class="nav-btn" data-act="nextR"'+(S.cur<S.rounds.length-1?"":" disabled")+' aria-label="Ronda siguiente">›</button>' +
     '</div>' +
     courts + restHTML + action +
   '</div>';
@@ -3112,7 +3182,7 @@ function render(){
     if(S.cur > S.rounds.length - 1) S.cur = Math.max(0, S.rounds.length - 1);
     var banner = '<div class="viewer" style="margin-top:12px">' +
       '<b>'+esc(S.name)+'</b>' +
-      '<p>Solo lectura. Se actualiza solo cuando el organizador anota un resultado.</p>' +
+      '<p>Puedes anotar los marcadores de tu cancha. Los cambios los ven todos al instante. El torneo lo maneja el organizador.</p>' +
       (soyDueno >= 0
         ? '<button class="btn btn-sm" data-act="abrirComoDueno" style="margin-top:10px">Soy el organizador · anotar</button>'
         : '') +
@@ -3263,7 +3333,7 @@ document.addEventListener("click", function(e){
     return;
   }
   if(act === "inicio"){
-    enHome = true; RO = false; tab = "ronda";
+    enHome = true; RO = false; tab = "ronda"; cerrarWs(); setLive("");
     render(); window.scrollTo({top:0}); return;
   }
   if(act === "irClave"){ location.href = "/t/" + el.dataset.c; return; }
@@ -3327,9 +3397,9 @@ document.addEventListener("click", function(e){
 });
 
 document.addEventListener("input", function(e){
-  if(RO) return;                                // mirando no se escribe
   var el = e.target;
   if(!el.dataset) return;
+  if(RO && el.dataset.sc === undefined) return;   // el invitado solo anota
 
   if(el.dataset.sc !== undefined && el.classList.contains("sc")){
     setScore(+el.dataset.m, el.dataset.s, el.value);
@@ -3385,7 +3455,8 @@ document.getElementById("modal").addEventListener("click", function(e){
 });
 
 document.addEventListener("keydown", function(e){
-  if(RO && document.getElementById("modal").hidden) return;
+  if(RO && document.getElementById("modal").hidden &&
+     !(e.target.classList && e.target.classList.contains("sc"))) return;
   if(!document.getElementById("modal").hidden){
     if(e.key === "Escape"){ e.preventDefault(); closeAsk(false); }
     else if(e.key === "Enter"){ e.preventDefault(); closeAsk(true); }
@@ -3411,6 +3482,16 @@ document.addEventListener("keydown", function(e){
     e.target.blur();
   }
 });
+
+/* Si dejaste un torneo a medias, la app abre directamente en su ronda.
+   (Esta línea se perdió en una refactorización y la app volvía siempre a
+   la portada.) */
+enHome = !(S && S.started && !S.finished);
+if(!enHome && S && S.remote){
+  checkBackend().then(function(hay){
+    if(hay){ setLive("on"); connect(S.remote.slug); }
+  });
+}
 
 aplicarApariencia();
 
