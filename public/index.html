@@ -1018,7 +1018,9 @@ var ROUTE = parseRoute();
 var BACKEND = null;          // null = sin comprobar · false = alojamiento estático
 var RO = false;              // modo espectador
 var roLoaded = false;
+var errBackend = false;         // el fallo fue del servidor, no del torneo
 var ws = null, wsTimer = null, pollTimer = null, pushTimer = null;
+var wsSlug = null;              // de qué torneo es el socket abierto
 
 /* ¿Este alojamiento tiene servidor de marcador en vivo? En Netlify o en
    cualquier hosting estático no lo hay, y la app funciona igual pero solo
@@ -1248,6 +1250,7 @@ function stopSharing(){
 }
 function cerrarWs(){
   clearTimeout(wsTimer);
+  wsSlug = null;
   if(ws){ var v = ws; ws = null; try{ v.onclose = null; v.close(); }catch(e){} }
 }
 /* Salir del torneo ajeno y cortar TODO lo suyo: websocket, sondeo cada 8 s y
@@ -1278,11 +1281,13 @@ function dejarDeMirar(){
 }
 
 function connect(slug){
-  if(ws) return;
+  if(ws && wsSlug === slug) return;
+  if(ws) cerrarWs();             // era de otro torneo: jamás mezclar canales
+  wsSlug = slug;
   try{
     var proto = location.protocol === "https:" ? "wss:" : "ws:";
     ws = new WebSocket(proto + "//" + location.host + "/api/t/" + slug + "/ws");
-  }catch(e){ setLive("off"); return; }
+  }catch(e){ ws = null; wsSlug = null; setLive("off"); return; }
 
   ws.onopen = function(){ setLive("on"); try{ ws.send("hola"); }catch(e){} };
   ws.onmessage = function(e){
@@ -1301,7 +1306,7 @@ function connect(slug){
   ws.onclose = function(){
     ws = null; setLive("off");
     clearTimeout(wsTimer);
-    wsTimer = setTimeout(function(){ connect(slug); }, 3000);
+    wsTimer = setTimeout(function(){ if(wsSlug === slug) connect(slug); }, 3000);
   };
 }
 /* Por si el websocket no llega (wifi del club, iPhone bloqueado…) */
@@ -3204,9 +3209,14 @@ function viewLoading(){
   if(roLoaded === "error"){
     return '<div class="stack" style="padding-top:24px">' +
       '<div class="card box">' +
-        '<h3>No encontramos ese marcador</h3>' +
-        '<p class="hint" style="margin-top:0">Puede que el organizador todavía no lo haya publicado, o que ya lo haya cerrado. Pídele el enlace otra vez.</p>' +
-        '<button class="btn btn-wide" data-act="retry" style="margin-top:12px">Reintentar</button>' +
+        (errBackend
+          ? '<h3>Sin conexión con el marcador</h3>' +
+            '<p class="hint" style="margin-top:0">No pudimos hablar con el servidor. Comprueba el wifi y vuelve a intentarlo; la clave ' +
+              (ROUTE ? '<b>'+esc(ROUTE.slug)+'</b> ' : '') + 'sigue guardada.</p>'
+          : '<h3>No encontramos ese marcador</h3>' +
+            '<p class="hint" style="margin-top:0">Puede que el organizador todavía no lo haya publicado, o que ya lo haya cerrado. Pídele el enlace otra vez.</p>') +
+        '<button class="btn btn-primary btn-wide" data-act="retry" style="margin-top:12px">Reintentar</button>' +
+        '<button class="btn btn-wide" data-act="salirRuta" style="margin-top:8px">Ir a mis torneos</button>' +
       '</div></div>';
   }
   return '<div class="stack" style="padding-top:24px"><div class="card box">' +
@@ -3223,12 +3233,14 @@ function render(){
   var focusKey = (act0 && act0.dataset && act0.dataset.sc) ? act0.dataset.sc : null;
 
   /* --- espectador: solo mira, y todo llega del servidor --- */
-  if(RO){
+  if(RO || (ROUTE && !ROUTE.key)){
     var strip = document.getElementById("tstrip");
     strip.hidden = true;
     strip.innerHTML = "";        // nada de los torneos propios en el DOM
 
-    if(!roLoaded || !S){
+    // roLoaded puede ser "error", que es truthy: por eso el aviso no salía
+    // nunca y se colaba el torneo propio.
+    if(roLoaded !== true || !S){
       tabsEl.hidden = true;
       view.innerHTML = viewLoading();
       return;
@@ -3462,7 +3474,20 @@ document.addEventListener("click", function(e){
   }
   if(act === "retry"){
     if(!ROUTE) return;
-    roLoaded = false; render(); pull(ROUTE.slug); connect(ROUTE.slug); return;
+    roLoaded = false; errBackend = false; render();
+    var slug = ROUTE.slug;
+    checkBackend().then(function(hay){
+      if(!ROUTE) return;
+      if(!hay){ roLoaded = "error"; errBackend = true; render(); return; }
+      pull(slug); connect(slug);
+    });
+    return;
+  }
+  if(act === "salirRuta"){
+    dejarDeMirar();
+    enHome = true; tab = "torneos";
+    S = DB.draft || DB.tournaments[DB.active] || null;
+    render(); return;
   }
 });
 
@@ -3564,7 +3589,10 @@ document.addEventListener("keydown", function(e){
    (Esta línea se perdió en una refactorización y la app volvía siempre a
    la portada.) */
 enHome = !(S && (S.started ? !S.finished : S.players.length > 0));
-if(!enHome && S && S.remote){
+// Con ROUTE estoy abriendo el enlace de OTRO torneo: ni se mira lo mío.
+// Reconectar aquí abría el websocket de mi torneo y, como connect() no abre
+// un segundo, el marcador "en vivo" del ajeno era en realidad el mío.
+if(!ROUTE && !enHome && S && S.remote){
   checkBackend().then(function(hay){
     if(hay){ setLive("on"); connect(S.remote.slug); }
   });
@@ -3587,10 +3615,10 @@ function arrancar(){
   render();
   checkBackend().then(function(hay){
     if(!hay){
-      // Enlace de torneo en un alojamiento sin servidor: no hay nada que traer.
-      ROUTE = null; RO = false;
+      // Aquí NO se suelta la ruta. Si el wifi del club falla un segundo, antes
+      // caíamos en la app local y te abría tu propio torneo en vez del ajeno.
+      roLoaded = "error"; errBackend = true;
       render();
-      toast("Este enlace necesita el marcador en vivo");
       return;
     }
 
