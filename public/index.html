@@ -579,6 +579,32 @@
   }
 
   /* ---------- navegación de rondas ---------- */
+  /* ---------- parejas fijas ---------- */
+  .pareja{
+    display:grid;grid-template-columns:26px 1fr auto 1fr;align-items:center;gap:8px;
+    padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--card-2);
+    margin-bottom:8px;
+  }
+  .pareja .num{
+    font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:center;
+  }
+  .pareja .amp{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+  .pj-btn{
+    width:100%;min-width:0;padding:9px 8px;border-radius:9px;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    font:inherit;font-size:14px;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .pj-btn[aria-pressed="true"]{
+    border-color:var(--brand);background:var(--brand-wash);
+    box-shadow:inset 0 0 0 1px var(--brand);
+  }
+  .pareja-suelto{
+    display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:11px;
+    border:1px dashed var(--loss);color:var(--loss);
+    font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  }
+
   /* En qué ronda vas: lo primero que se busca al mirar el móvil. */
   .rbadge{
     display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -905,6 +931,7 @@ function freshT(n){
     name: dateName(),
     players: [],          // {id,name,active}
     format: "americano",
+    pairOrder: [],        // parejas fijas: los ids de dos en dos
     courts: 1,
     courtsAuto: true,
     minutes: 120,
@@ -972,6 +999,8 @@ function seedRoster(db){
 function normalizeT(t){
   if(!t || !Array.isArray(t.players)) return;
   if(!Array.isArray(t.rounds)) t.rounds = [];
+  if(!Array.isArray(t.pairOrder)) t.pairOrder = [];
+  if(t.format !== "mexicano" && t.format !== "parejas") t.format = "americano";
   if(t.courtsAuto === undefined) t.courtsAuto = true;
   if(t.minutes === undefined){
     t.minutes = t.plannedRounds ? Math.max(60, Math.min(120, t.plannedRounds * 15)) : 120;
@@ -1420,7 +1449,37 @@ function actives(){ return S.players.filter(function(p){ return p.active; }); }
 
 /* Canchas: una por cada 4 jugadores, máximo 3.
    Menos de 8 → 1 cancha · de 8 a 11 → 2 · 12 → 3. */
-function maxCourts(){ return Math.max(1, Math.min(3, Math.floor(Math.max(actives().length, 4) / 4))); }
+function esParejas(){ return S.format === "parejas"; }
+
+/* Parejas fijas. El orden de pairOrder manda: de dos en dos. Al tocar dos
+   jugadores se intercambian de sitio, así nunca se puede repetir a nadie ni
+   dejar a otro suelto. */
+function syncPairs(){
+  var ids = actives().map(function(p){ return p.id; });
+  var orden = (S.pairOrder || []).filter(function(id){ return ids.indexOf(id) >= 0; });
+  ids.forEach(function(id){ if(orden.indexOf(id) < 0) orden.push(id); });
+  S.pairOrder = orden;
+  return orden;
+}
+function parejas(){
+  var o = syncPairs(), out = [];
+  for(var i = 0; i + 1 < o.length; i += 2) out.push([o[i], o[i+1]]);
+  return out;                       // si sobra uno impar, se queda fuera
+}
+function nPares(){ return Math.floor(actives().length / 2); }
+function pareKey(pr){ return pr[0] < pr[1] ? pr[0]+"|"+pr[1] : pr[1]+"|"+pr[0]; }
+function intercambiarJugadores(a, b){
+  var o = syncPairs(), i = o.indexOf(a), j = o.indexOf(b);
+  if(i < 0 || j < 0 || i === j) return;
+  o[i] = b; o[j] = a;
+  S.pairOrder = o;
+}
+
+function maxCourts(){
+  // Con parejas fijas la unidad es la pareja: dos parejas por cancha.
+  if(esParejas()) return Math.max(1, Math.min(3, Math.floor(nPares() / 2)));
+  return Math.max(1, Math.min(3, Math.floor(Math.max(actives().length, 4) / 4)));
+}
 function syncCourts(){
   var mx = maxCourts();
   S.courts = S.courtsAuto ? mx : Math.max(1, Math.min(S.courts, mx));
@@ -1429,13 +1488,25 @@ function syncCourts(){
 function setupLine(){
   var n = actives().length;
   if(n < 4) return "Faltan " + (4 - n) + " para poder empezar.";
+  if(esParejas()){
+    if(n % 2) return "Con " + n + " jugadores sobra uno: las parejas fijas necesitan un número par.";
+    var P = nPares(), cc = syncCourts(), fuera = P - cc * 2;
+    return n + " jugadores · " + P + " parejas · " + cc + (cc === 1 ? " cancha" : " canchas") +
+      " · juegan " + (cc*2) + " parejas" +
+      (fuera ? " y descansa" + (fuera === 1 ? " 1" : "n " + fuera) + " por turnos" : ", ninguna descansa");
+  }
   var c = syncCourts(), rest = n - c * 4;
   return n + " jugadores · " + c + (c === 1 ? " cancha" : " canchas") + " · juegan " + (c * 4) +
     (rest ? " y descansa" + (rest === 1 ? " 1" : "n " + rest) + " por turnos" : ", nadie descansa");
 }
 
 /* Cuánta gente descansa en cada ronda. */
-function restPerRound(){ return Math.max(0, actives().length - syncCourts() * 4); }
+function restPerRound(){
+  if(esParejas()) return Math.max(0, nPares() - syncCourts() * 2) * 2;   // en jugadores
+  return Math.max(0, actives().length - syncCourts() * 4);
+}
+/* Parejas que descansan cada ronda. */
+function paresDescansan(){ return Math.max(0, nPares() - syncCourts() * 2); }
 
 function gcd(a,b){ while(b){ var t = b; b = a % b; a = t; } return a; }
 
@@ -1444,6 +1515,11 @@ function gcd(a,b){ while(b){ var t = b; b = a % b; a = t; } return a; }
    Eso solo pasa cada 'ciclo' rondas; elegimos el múltiplo más cercano al que
    cabe en el tiempo. Con 9 jugadores el ciclo es de 9, con 11 de 11, etc. */
 function restCycle(){
+  if(esParejas()){
+    var P = nPares(), r = paresDescansan();
+    if(P < 2 || r === 0) return 1;
+    return P / gcd(r, P);
+  }
   var n = actives().length, rest = restPerRound();
   if(n < 4 || rest === 0) return 1;      // nadie descansa: vale cualquier número
   return n / gcd(rest, n);
@@ -1492,7 +1568,10 @@ function fmtDur(m){
   var h = Math.floor(m / 60), r = m % 60;
   return (h ? h + " h" + (r ? " " + r : "") : r + " min");
 }
-function nombreFormato(){ return S.format === "mexicano" ? "por nivel" : "americano"; }
+function nombreFormato(){
+  return S.format === "mexicano" ? "por nivel"
+       : S.format === "parejas"  ? "parejas fijas" : "americano";
+}
 function durLine(){
   var n = goalRounds();
   return n + " rondas · " + S.roundPoints + " puntos por ronda" +
@@ -1502,6 +1581,21 @@ function durLine(){
 function roundsNote(){
   var n = actives().length;
   if(n < 4) return "";
+  if(esParejas()){
+    if(n % 2) return "Quita o añade uno: con parejas fijas el número tiene que ser par.";
+    var P = nPares(), r = paresDescansan(), R = goalRounds();
+    if(r === 0) return "Las " + P + " parejas juegan las " + R + " rondas. Ninguna descansa; lo que cambia cada ronda es contra quién.";
+    var tot = R * r, b = Math.floor(tot / P), sob = tot % P;
+    if(sob === 0){
+      return "Cada pareja juega " + (R - b) + " partidos y descansa " + b +
+        (b === 1 ? " vez" : " veces") + ". Exactamente igual para todas.";
+    }
+    var f = fairRounds();
+    return "Con " + R + " rondas no sale redondo: " + sob +
+      (sob === 1 ? " pareja jugaría " : " parejas jugarían ") + (R - b) +
+      " partidos y el resto " + (R - b - 1) + ". Sale exacto con " +
+      (f.length ? f.join(" o ") + " rondas." : "otro número de parejas.");
+  }
   var rest = restPerRound(), rounds = goalRounds();
   if(rest === 0) return "Los " + n + " juegan los " + rounds + " partidos. Nadie descansa.";
 
@@ -1800,7 +1894,143 @@ function arrangeMexicano(playing, pc, oc, cc){
   });
   return mejor;
 }
+/* ---------- parejas fijas ----------
+   Cada ronda salen tantas parejas como descansaban y entran las que estaban
+   fuera. Quién sale: primero el que más rondas lleva jugadas y, a igualdad,
+   el que perdió. Así se conserva lo de "el que gana se queda" —en las
+   simulaciones el ganador se queda entre el 65% y el 90% de las veces— pero
+   sin que una pareja fuerte acabe jugándolo todo mientras otra mira.
+   Con "el que perdió sale" a secas la diferencia llegaba a 6 partidos entre
+   la que más jugaba y la que menos; así queda en 0 (o en 1 cuando el número
+   de rondas no es múltiplo del ciclo). */
+function statsParejas(){
+  var m = {};
+  parejas().forEach(function(pr){ m[pareKey(pr)] = { pj:0, desc:0, ult:-99 }; });
+  S.rounds.forEach(function(r, ri){
+    r.matches.forEach(function(mt){
+      [mt.a, mt.b].forEach(function(lado){
+        var k = pareKey(lado);
+        if(m[k]){ m[k].pj++; }
+      });
+    });
+    // quien no jugó esa ronda, descansó
+    var jugaron = {};
+    r.matches.forEach(function(mt){ jugaron[pareKey(mt.a)] = 1; jugaron[pareKey(mt.b)] = 1; });
+    Object.keys(m).forEach(function(k){ if(!jugaron[k]){ m[k].desc++; m[k].ult = ri; } });
+  });
+  return m;
+}
+/* Rivalidades ya jugadas, para no repetir siempre el mismo cruce. */
+function rivalHistory(){
+  var rv = {};
+  S.rounds.forEach(function(r){
+    r.matches.forEach(function(mt){
+      var k = pareKey(mt.a) + "#" + pareKey(mt.b);
+      var k2 = pareKey(mt.b) + "#" + pareKey(mt.a);
+      rv[k] = (rv[k]||0)+1; rv[k2] = (rv[k2]||0)+1;
+    });
+  });
+  return rv;
+}
+function buildRoundParejas(){
+  var todas = parejas();
+  var P = todas.length, C = syncCourts(), enJuego = C * 2;
+  if(P < 2 || enJuego > P) return { rest:actives().map(function(p){ return p.id; }), matches:[] };
+
+  var st = statsParejas();
+  var ultima = S.rounds.length ? S.rounds[S.rounds.length - 1] : null;
+
+  // Quién descansó la ronda pasada y quién perdió su partido.
+  var descPrev = {}, perdioPrev = {}, jugoPrev = {};
+  if(ultima){
+    ultima.matches.forEach(function(mt){
+      jugoPrev[pareKey(mt.a)] = 1; jugoPrev[pareKey(mt.b)] = 1;
+      if(mt.sa === null || mt.sb === null || mt.sa === mt.sb) return;
+      perdioPrev[pareKey(mt.sa < mt.sb ? mt.a : mt.b)] = 1;
+    });
+    todas.forEach(function(pr){ if(!jugoPrev[pareKey(pr)]) descPrev[pareKey(pr)] = 1; });
+  }
+
+  var rv = rivalHistory(), ch = courtHistory();
+
+  /* Pesos. Salieron de simular 12 rondas cientos de veces en todas las
+     configuraciones (de 6 a 12 jugadores, de 1 a 3 canchas):
+       fair    manda sobre todo: que nadie juegue más partidos que otro.
+       seguido evita descansar dos rondas seguidas...
+       rival   ...salvo cuando eso obligaría a repetir siempre el mismo cruce.
+     Con 8 jugadores en 1 cancha, 3000/400 repetía el mismo rival las 6 veces;
+     1000/550 usa los 6 cruces posibles a cambio de 2 descansos seguidos en
+     todo el torneo. En el resto de configuraciones no hay ninguno. */
+  var W_FAIR = 10000, W_SEGUIDO = 1000, W_RETAS = 300, W_RIVAL = 550, W_CANCHA = 5;
+
+  var mejor = null, mejorCoste = Infinity;
+  combinaciones(P, enJuego).forEach(function(cb){
+    var dentro = {};
+    cb.forEach(function(x){ dentro[x] = 1; });
+
+    // Reparto de partidos si jugara esta combinación.
+    var suma = 0, after = [];
+    for(var i = 0; i < P; i++){
+      var v = st[pareKey(todas[i])].pj + (dentro[i] ? 1 : 0);
+      after.push(v); suma += v;
+    }
+    var med = suma / P, base = 0;
+    after.forEach(function(v){ base += W_FAIR * (v - med) * (v - med); });
+
+    for(var i = 0; i < P; i++){
+      var k = pareKey(todas[i]);
+      if(!dentro[i] && descPrev[k]) base += W_SEGUIDO;       // dos descansos seguidos
+      if(jugoPrev[k]){
+        if(perdioPrev[k] && dentro[i]) base += W_RETAS;      // el que perdió debería salir
+        if(!perdioPrev[k] && !dentro[i]) base += W_RETAS;    // el que ganó debería quedarse
+      }
+    }
+
+    emparejamientos(cb).forEach(function(m){
+      var coste = base;
+      m.forEach(function(par, c){
+        var A = todas[par[0]], B = todas[par[1]];
+        coste += W_RIVAL * (rv[pareKey(A) + "#" + pareKey(B)] || 0);
+        A.concat(B).forEach(function(id){ coste += W_CANCHA * ((ch[id] && ch[id][c]) || 0); });
+      });
+      coste += Math.random() * 0.5;                          // desempate al azar
+      if(coste < mejorCoste){ mejorCoste = coste; mejor = m; }
+    });
+  });
+
+  var matches = mejor.map(function(par){
+    return { a:todas[par[0]].slice(), b:todas[par[1]].slice(), sa:null, sb:null };
+  });
+  var dentroIds = {};
+  matches.forEach(function(m){ m.a.concat(m.b).forEach(function(id){ dentroIds[id] = 1; }); });
+  var rest = actives().map(function(p){ return p.id; }).filter(function(id){ return !dentroIds[id]; });
+  return { rest:rest, matches:matches };
+}
+
+/* Todas las formas de elegir k de n, y todas las formas de emparejar una
+   lista. Con 6 parejas como mucho son 15 combinaciones y 15 emparejamientos:
+   se puede probar todo y quedarse con lo mejor, sin depender del azar. */
+function combinaciones(n, k){
+  var out = [];
+  (function go(i, acc){
+    if(acc.length === k){ out.push(acc.slice()); return; }
+    if(i >= n) return;
+    acc.push(i); go(i + 1, acc); acc.pop(); go(i + 1, acc);
+  })(0, []);
+  return out;
+}
+function emparejamientos(lista){
+  if(!lista.length) return [[]];
+  var out = [], a = lista[0];
+  for(var i = 1; i < lista.length; i++){
+    var resto = lista.slice(1);
+    resto.splice(i - 1, 1);
+    emparejamientos(resto).forEach(function(m){ out.push([[a, lista[i]]].concat(m)); });
+  }
+  return out;
+}
 function buildRound(){
+  if(esParejas()) return buildRoundParejas();
   var act = actives();
   var courts = syncCourts();
   var playCount = courts * 4;
@@ -1872,6 +2102,8 @@ function roundDone(r){
   if(!r || !r.matches.length) return false;
   return r.matches.every(function(m){ return m.sa !== null && m.sb !== null; });
 }
+/* Americano se sortea entero de una. Por nivel y parejas fijas dependen de
+   los resultados, así que van ronda a ronda. */
 function plannedTotal(){ return S.format === "americano" ? estRounds() : 1; }
 /* Máximo de compañeros distintos que puede tener alguien: o todos los demás,
    o tantos como rondas juegue. Lo que sea menor. */
@@ -1934,7 +2166,7 @@ function drawAll(){
   for(var k = 0; k < attempts; k++){
     S.rounds = [];
     for(var i = 0; i < total; i++) S.rounds.push(buildRound());
-    if(S.format !== "mexicano") equilibrarCanchas(S.rounds);
+    if(S.format === "americano") equilibrarCanchas(S.rounds);   // mueve jugadores sueltos
     var q = drawQuality(S.rounds);
     var mejor = q.min > bestMin ||
       (q.min === bestMin && q.maxRep < bestRep) ||
@@ -1984,6 +2216,10 @@ function addMany(text){
 }
 function startTournament(){
   if(actives().length < 4){ toast("Necesitas al menos 4 jugadores"); return; }
+  if(esParejas() && actives().length % 2){
+    toast("Las parejas fijas necesitan un número par de jugadores");
+    return;
+  }
   if(!S.rounds.length) drawAll();
   S.started = true;
   S.finished = false;
@@ -2626,6 +2862,42 @@ function rosterChips(){
       : chip;
   }).join("") + '</div>';
 }
+/* Elegir las parejas: se tocan dos jugadores y se intercambian de sitio.
+   Al ser siempre un intercambio, es imposible repetir a alguien o dejar a
+   otro sin pareja. */
+var pjSel = null;
+function parejasCard(){
+  if(!esParejas()) return "";
+  var act = actives();
+  if(act.length < 4){
+    return '<div class="card box"><h3>Parejas</h3>' +
+      '<p class="hint" style="margin-top:0">Elige jugadores arriba y aquí podrás formar las parejas.</p></div>';
+  }
+  var prs = parejas();
+  var filas = prs.map(function(pr, i){
+    function jug(id){
+      return '<button class="pj-btn" data-act="pjSwap" data-id="'+id+'" ' +
+        'aria-pressed="'+(pjSel === id)+'">'+esc(nameOf(id))+'</button>';
+    }
+    return '<div class="pareja">' +
+      '<span class="num">'+(i+1)+'</span>' + jug(pr[0]) +
+      '<span class="amp">con</span>' + jug(pr[1]) +
+    '</div>';
+  }).join("");
+  var suelto = act.length % 2
+    ? '<div class="pareja-suelto">Sobra ' + esc(nameOf(syncPairs()[act.length-1])) +
+      ' · hace falta un número par</div>'
+    : '';
+  return '<div class="card box">' +
+    '<h3>Parejas<span class="side-note">'+prs.length+'</span></h3>' +
+    filas + suelto +
+    '<p class="hint">'+(pjSel
+      ? 'Ahora toca a quien quieras poner en su lugar.'
+      : 'Toca un jugador y luego otro para intercambiarlos.')+'</p>' +
+    '<button class="btn btn-sm btn-ghost btn-wide" data-act="pjShuffle" style="margin-top:4px">Barajar parejas</button>' +
+  '</div>';
+}
+
 function rosterCard(){
   var n = S.players.length;
   return '<div class="card box">' +
@@ -2743,6 +3015,7 @@ function viewSetup(){
   var n = S.players.length;
   var ok = n >= 4 && n <= 12;
   var mex = S.format === "mexicano";
+  var par = S.format === "parejas";
 
   var preview = "";
   if(ok && S.rounds.length){
@@ -2772,16 +3045,20 @@ function viewSetup(){
       '<input class="field" id="tname" value="'+esc(S.name)+'" maxlength="24" data-act="rename" autocomplete="off">' +
     '</div>' +
     rosterCard() +
+    parejasCard() +
 
     '<div class="card box">' +
       '<h3>Formato</h3>' +
       '<div class="opts">' +
         '<div class="opt-full">' +
           '<div class="seg">' +
-            '<button data-act="fmt" data-v="americano" aria-pressed="'+(!mex)+'">Americano</button>' +
+            '<button data-act="fmt" data-v="americano" aria-pressed="'+(!mex && !par)+'">Americano</button>' +
             '<button data-act="fmt" data-v="mexicano" aria-pressed="'+mex+'">Por nivel</button>' +
+            '<button data-act="fmt" data-v="parejas" aria-pressed="'+par+'">Parejas fijas</button>' +
           '</div>' +
-          '<p class="hint">'+(mex
+          '<p class="hint">'+(par
+            ? "Juegas siempre con el mismo compañero y cambia el rival. Si hay parejas de sobra para las canchas, al acabar la ronda sale la que perdió y entra la que descansaba; la que gana se queda. Si una lleva más partidos que las demás, sale aunque haya ganado, para que todos jueguen lo mismo."
+            : mex
             ? "La primera ronda sale al azar. Desde la segunda se empareja al 1º de la tabla con el último, al 2º con el penúltimo… Los equipos quedan igualados y descansan antes los que van ganando."
             : "Rotación: cada ronda juegas con y contra gente distinta.")+'</p>' +
         '</div>' +
@@ -2885,7 +3162,7 @@ function viewRonda(){
     adelante = '';
   }else if(S.finished){
     adelante = '<button class="btn btn-primary" data-act="goTabla">Ver la tabla</button>';
-  }else if(S.format === "mexicano" && S.rounds.length < estRounds()){
+  }else if(S.format !== "americano" && S.rounds.length < estRounds()){
     adelante = '<button class="btn btn-primary" data-act="next"'+(done?"":" disabled")+'>' +
       (done ? "Sortear ronda " + (S.rounds.length + 1) : "Completa los marcadores") + '</button>';
   }else if(torneoCompleto()){
@@ -3474,7 +3751,12 @@ document.addEventListener("click", function(e){
   if(act === "rall"){ addAllFromRoster(); return; }
   if(act === "rnone"){ clearPicked(); return; }
   if(act === "redit"){ editRoster = !editRoster; render(); return; }
-  if(act === "fmt"){ S.format = el.dataset.v; afterSetupChange(); return; }
+  if(act === "fmt"){
+    S.format = el.dataset.v;
+    pjSel = null;
+    S.courtsAuto = true;              // el máximo de canchas cambia con el formato
+    afterSetupChange(); return;
+  }
   if(act === "scoring"){
     S.scoring = el.dataset.v;
     var lista = pointList();
@@ -3567,6 +3849,20 @@ document.addEventListener("click", function(e){
   }
   if(act === "delT"){ deleteTournament(+el.dataset.i); return; }
   if(act === "newT"){ newTournament(); return; }
+  if(act === "pjSwap"){
+    var id = el.dataset.id;
+    if(pjSel === id){ pjSel = null; }
+    else if(pjSel){ intercambiarJugadores(pjSel, id); pjSel = null; afterSetupChange(); return; }
+    else { pjSel = id; }
+    render();
+    return;
+  }
+  if(act === "pjShuffle"){
+    pjSel = null;
+    S.pairOrder = shuffle(syncPairs().slice());
+    afterSetupChange();
+    return;
+  }
 
   if(act === "prev"){ S.cur = Math.max(0, S.cur - 1); save(); render(); return; }
   if(act === "nextR"){ S.cur = Math.min(S.rounds.length - 1, S.cur + 1); save(); render(); return; }
