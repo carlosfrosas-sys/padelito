@@ -579,17 +579,29 @@
   }
 
   /* ---------- navegación de rondas ---------- */
-  .rnav{display:flex;align-items:center;gap:8px}
-  .rnav .t{
-    flex:1;text-align:center;font-family:var(--f-display);text-transform:uppercase;
-    letter-spacing:.1em;font-size:18px;font-weight:700;
+  /* En qué ronda vas: lo primero que se busca al mirar el móvil. */
+  .rbadge{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:12px 15px;border-radius:var(--r);
+    border:2px solid var(--brand);background:var(--brand-wash);
   }
-  .rnav .t small{display:block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;color:var(--muted);font-weight:400}
-  .nav-btn{
-    width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--card);
-    cursor:pointer;display:grid;place-items:center;color:var(--ink);flex:none;
+  .rb-n{
+    font-family:var(--f-display);text-transform:uppercase;letter-spacing:.05em;
+    font-size:27px;font-weight:700;line-height:1;color:var(--ink);
   }
-  .nav-btn[disabled]{opacity:.3;cursor:not-allowed}
+  .rb-de{
+    font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink);
+  }
+  .rb-est{
+    margin-left:auto;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;padding:4px 9px;border-radius:999px;
+    background:var(--card);border:1px solid var(--line);color:var(--muted);
+  }
+  .rb-est.ok{color:var(--win);border-color:var(--win)}
+  /* Atrás y adelante, uno al lado del otro. */
+  .rnav2{display:flex;gap:10px}
+  .rnav2 .btn{flex:1;min-width:0}
 
   /* ---------- cuadro ---------- */
   .card.now{border-color:var(--brand)}
@@ -2861,22 +2873,29 @@ function viewRonda(){
         r.rest.map(function(id){ return '<span class="r">'+esc(nameOf(id))+'</span>'; }).join("") + '</div>'
     : "";
 
-  var action;
-  if(RO){
-    action = "";
+  // Abajo: atrás (si hay ronda anterior) y adelante. En la última, adelante
+  // se convierte en el botón de terminar.
+  var atras = S.cur > 0
+    ? '<button class="btn" data-act="prev">← Ronda '+S.cur+'</button>'
+    : '';
+  var adelante;
+  if(!isLast){
+    adelante = '<button class="btn btn-primary" data-act="nextR">Ronda '+(S.cur+2)+' →</button>';
+  }else if(RO){
+    adelante = '';
   }else if(S.finished){
-    action = '<button class="btn btn-primary btn-wide" data-act="goTabla">Torneo concluido · ver la tabla</button>';
-  }else if(isLast && S.format === "mexicano" && S.rounds.length < estRounds()){
-    action = '<button class="btn btn-primary btn-wide" data-act="next"'+(done?"":" disabled")+'>' +
-      (done ? "Sortear ronda " + (S.rounds.length + 1) + " de " + estRounds()
-            : "Completa los marcadores") + '</button>';
-  }else if(isLast && torneoCompleto()){
-    action = '<button class="btn btn-primary btn-wide" data-act="finalizar">Finalizado · ver quién ganó</button>';
-  }else if(isLast){
-    action = '<button class="btn btn-wide" id="lastBtn" disabled>'+lastBtnLabel()+'</button>';
+    adelante = '<button class="btn btn-primary" data-act="goTabla">Ver la tabla</button>';
+  }else if(S.format === "mexicano" && S.rounds.length < estRounds()){
+    adelante = '<button class="btn btn-primary" data-act="next"'+(done?"":" disabled")+'>' +
+      (done ? "Sortear ronda " + (S.rounds.length + 1) : "Completa los marcadores") + '</button>';
+  }else if(torneoCompleto()){
+    adelante = '<button class="btn btn-primary" data-act="finalizar">Finalizado · ver quién ganó</button>';
   }else{
-    action = '<button class="btn btn-primary btn-wide" data-act="nextR">Ronda '+(S.cur+2)+' →</button>';
+    adelante = '<button class="btn" id="lastBtn" disabled>'+lastBtnLabel()+'</button>';
   }
+  var action = (atras || adelante)
+    ? '<div class="rnav2">' + atras + adelante + '</div>'
+    : '';
 
   var avisoClave = (!RO && S.remote && !S.claveOculta)
     ? '<div class="clave-aviso">' +
@@ -2892,10 +2911,10 @@ function viewRonda(){
   return '' +
   '<div class="stack" style="padding-top:12px">' +
     avisoClave +
-    '<div class="rnav">' +
-      '<button class="nav-btn" data-act="prev"'+(S.cur>0?"":" disabled")+' aria-label="Ronda anterior">‹</button>' +
-      '<div class="t">Ronda '+(S.cur+1)+'<small>de '+S.rounds.length+' · '+(done?"completa":"en juego")+'</small></div>' +
-      '<button class="nav-btn" data-act="nextR"'+(S.cur<S.rounds.length-1?"":" disabled")+' aria-label="Ronda siguiente">›</button>' +
+    '<div class="rbadge">' +
+      '<span class="rb-n">Ronda '+(S.cur+1)+'</span>' +
+      '<span class="rb-de">de '+S.rounds.length+'</span>' +
+      '<span class="rb-est'+(done?" ok":"")+'">'+(done?"completa":"en juego")+'</span>' +
     '</div>' +
     courts + restHTML + action +
   '</div>';
@@ -3306,9 +3325,8 @@ function pintarSub(){
   // teléfono), pero la clave pública es la de la ruta.
   var clave = (S && S.remote) ? S.remote.slug : (ROUTE ? ROUTE.slug : null);
   if(clave) p.push('clave <b>' + esc(clave) + '</b>');
-  if(S && S.started && S.rounds.length){
-    p.push("ronda " + (Math.min(S.cur, S.rounds.length - 1) + 1) + " de " + S.rounds.length);
-  }else if(S){
+  // La ronda no va aquí: se ve grande encima del marcador.
+  if(S && !S.started){
     var n = S.players.filter(function(x){ return x.active !== false; }).length;
     p.push(n + (n === 1 ? " jugador" : " jugadores"));
   }
