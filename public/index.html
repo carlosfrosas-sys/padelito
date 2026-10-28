@@ -1791,69 +1791,81 @@ function arrangeRandom(playing, pc, oc, cc){
 }
 
 /* Reparto de canchas, ya con el cuadro cerrado.
-   Cambiar de cancha a un grupo entero no altera con quién ni contra quién
+   Cambiar de cancha a un partido entero no altera con quién ni contra quién
    juega nadie, así que esto se puede optimizar aparte sin tocar las parejas.
-   Vamos ronda por ronda probando las permutaciones y quedándonos con la que
-   deja los recuentos por jugador más igualados; repetimos hasta que no mejore. */
+   Antes se iba ronda por ronda quedándose con la mejor permutación, pero eso
+   se atascaba: con 8 jugadores y 7 rondas alguien acababa las 7 en la
+   cancha 1, porque moverlo a él desarreglaba a los otros siete. Ahora se
+   mira el cuadro entero: se intercambian dos partidos de cancha en una ronda
+   al azar y, si mejora, se queda (recocido simulado, que al principio
+   acepta algún paso a peor para salir de esos atascos).
+   Manda que nadie tenga más de 1 partido de diferencia entre su cancha más
+   usada y la menos usada; a igualdad, la suma de cuadrados, que es
+   repartirlo lo más igual posible entre todos. */
 function equilibrarCanchas(rounds){
   var k = 0;
   rounds.forEach(function(r){ k = Math.max(k, r.matches.length); });
   if(k < 2) return rounds;
-  var perms = PERMS[k] || permutaciones(k);
-  var cc = {};
 
-  function contar(r, signo){
-    r.matches.forEach(function(m, ci){
-      var ids = [m.a[0], m.a[1], m.b[0], m.b[1]];
-      for(var j = 0; j < 4; j++){
-        var id = ids[j];
-        if(!cc[id]) cc[id] = [];
-        cc[id][ci] = (cc[id][ci] || 0) + signo;
-      }
-    });
+  var ids = [], pos = {};
+  rounds.forEach(function(r){ r.matches.forEach(function(m){
+    m.a.concat(m.b).forEach(function(id){ if(pos[id] === undefined){ pos[id] = ids.length; ids.push(id); } });
+  }); });
+  var n = ids.length, cc = new Array(n * k).fill(0), dif = new Array(n).fill(0);
+  var suma = 0, exceso = 0;      // suma de cuadrados · lo que pasa de 1 la diferencia de cada uno
+
+  // Cada ronda como lista de partidos: el partido y sus 4 jugadores numerados.
+  var filas = rounds.map(function(r){
+    return r.matches.map(function(m){ return { m:m, g:[pos[m.a[0]], pos[m.a[1]], pos[m.b[0]], pos[m.b[1]]] }; });
+  });
+  function recalcula(x){
+    var mx = -1, mn = 1e9;
+    for(var c = 0; c < k; c++){ var v = cc[x * k + c]; if(v > mx) mx = v; if(v < mn) mn = v; }
+    var e = Math.max(0, mx - mn - 1);
+    exceso += e - dif[x]; dif[x] = e;
   }
-  /* Suma de cuadrados: con el total de cada jugador fijo, minimizarla
-     equivale a repartir sus partidos entre canchas lo más parejo posible. */
-  function coste(){
-    var t = 0, ids = Object.keys(cc);
-    for(var i = 0; i < ids.length; i++){
-      var v = cc[ids[i]];
-      for(var c = 0; c < k; c++){ var x = v[c] || 0; t += x * x; }
+  // Mueve un partido de la cancha 'de' a la cancha 'a' y devuelve cuánto cambia la suma.
+  function mover(p, de, a){
+    var d = 0, g = p.g;
+    for(var j = 0; j < 4; j++){
+      var x = g[j];
+      d += 2 * (cc[x * k + a] - cc[x * k + de]) + 2;
+      cc[x * k + de]--; cc[x * k + a]++;
+      recalcula(x);
     }
-    return t;
+    suma += d;
+    return d;
   }
-  function permutar(m, perm){
-    var out = [];
-    for(var gi = 0; gi < m.length; gi++) out[perm[gi]] = m[gi];
-    return out;
-  }
+  filas.forEach(function(f){ f.forEach(function(p, c){
+    p.g.forEach(function(x){ suma += 2 * cc[x * k + c] + 1; cc[x * k + c]++; });
+  }); });
+  for(var x = 0; x < n; x++) recalcula(x);
 
-  rounds.forEach(function(r){ contar(r, 1); });
+  var conVarios = [];
+  filas.forEach(function(f, ri){ if(f.length > 1) conVarios.push(ri); });
+  var mejorE = exceso, mejorSuma = suma, mejores = filas.map(function(f){ return f.slice(); });
 
-  for(var pase = 0; pase < 8; pase++){
-    var mejoro = false;
-    for(var ri = 0; ri < rounds.length; ri++){
-      var r = rounds[ri];
-      if(r.matches.length < 2) continue;
-      var original = r.matches;
-      contar(r, -1);
-      var mejorM = null, mejorC = Infinity;
-      for(var q = 0; q < perms.length; q++){
-        if(perms[q].length !== original.length) continue;
-        r.matches = permutar(original, perms[q]);
-        contar(r, 1);
-        var c = coste();
-        contar(r, -1);
-        if(c < mejorC){ mejorC = c; mejorM = r.matches; }
+  var pasos = 4000 * conVarios.length, T0 = 4, T1 = 0.05;
+  for(var it = 0; it < pasos && mejorE > 0; it++){
+    var T = T0 * Math.pow(T1 / T0, it / pasos);
+    var f = filas[conVarios[Math.floor(Math.random() * conVarios.length)]];
+    var i = Math.floor(Math.random() * f.length), j = Math.floor(Math.random() * f.length);
+    if(i === j) continue;
+    var e0 = exceso;
+    var d = mover(f[i], i, j) + mover(f[j], j, i) + 4 * (exceso - e0);
+    if(d <= 0 || Math.random() < Math.exp(-d / T)){
+      var t = f[i]; f[i] = f[j]; f[j] = t;
+      if(exceso < mejorE || (exceso === mejorE && suma < mejorSuma)){
+        mejorE = exceso; mejorSuma = suma; mejores = filas.map(function(x){ return x.slice(); });
       }
-      r.matches = mejorM || original;
-      contar(r, 1);
-      for(var z = 0; z < original.length; z++){
-        if(r.matches[z] !== original[z]){ mejoro = true; break; }
-      }
+    }else{
+      mover(f[i], j, i); mover(f[j], i, j);      // deshacer
     }
-    if(!mejoro) break;
   }
+
+  rounds.forEach(function(r, ri){
+    r.matches = mejores[ri].map(function(p){ return p.m; });
+  });
   return rounds;
 }
 /* Cuadros perfectos ("torneo whist"): con 4, 5, 8, 12 o 13 jugadores y
@@ -1916,15 +1928,22 @@ function cuadroWhist(R){
    (recocido simulado: al principio acepta algún paso a peor para no
    atascarse). Quién descansa en cada ronda no se toca: eso ya salió parejo.
    Lo que se mide es la suma de cuadrados de las veces que coincide cada par
-   de compañeros y, aparte, de rivales. Con el total fijo, minimizar la suma
-   de cuadrados es repartirlo lo más igual posible. Manda siempre lo de los
-   compañeros: el resultado nunca repite más compañeros que lo que entró. */
-function pulirCuadro(rounds){
+   de compañeros, de rivales y de partidos en cada cancha (el hueco de 4 en
+   4 dice la cancha). Con el total fijo, minimizar la suma de cuadrados es
+   repartirlo lo más igual posible. Orden de prioridad: no repetir
+   compañero, turnarse las canchas y, después, los rivales. Con 8 jugadores
+   y 7 rondas no se pueden tener las tres perfectas a la vez (se revisaron
+   los 6.240 cuadros sin compañero repetido): con canchas parejas siempre
+   hay algún par que se enfrenta 0 o 4 veces en lugar de 2. */
+function pulirCuadro(rounds, conCanchas){
   var ids = actives().map(function(p){ return p.id; }), n = ids.length, pos = {};
   ids.forEach(function(id, i){ pos[id] = i; });
-  var pc = new Array(n * n).fill(0), oc = new Array(n * n).fill(0);
-  var sp = 0, so = 0;                       // sumas de cuadrados
-  var W_C = 6;                              // peso de compañeros al buscar
+  var maxC = 1;
+  rounds.forEach(function(r){ maxC = Math.max(maxC, r.matches.length); });
+  var pc = new Array(n * n).fill(0), oc = new Array(n * n).fill(0), cc = new Array(n * maxC).fill(0);
+  var exc = new Array(n).fill(0);
+  var sp = 0, so = 0, sk = 0;               // sumas de cuadrados; sk = canchas desparejas
+  var W_C = 6, W_K = conCanchas ? 8 : 0;    // pesos de compañeros y canchas al buscar
 
   // Cada ronda como una fila de huecos: de 4 en 4, los dos primeros juntos.
   var filas = rounds.map(function(r){
@@ -1937,43 +1956,58 @@ function pulirCuadro(rounds){
     mat[i * n + j] = mat[j * n + i] = v + s;
     return d;
   }
+  /* Canchas: lo ideal es que a nadie le falten o le sobren más de 1 partido
+     entre su cancha más usada y la menos usada. Cuenta solo lo que pasa de ahí,
+     así una vez parejas no estorban a los rivales. */
+  function cancha(x, c, s){
+    cc[x * maxC + c] += s;
+    var mx = -1, mn = 1e9;
+    for(var q = 0; q < maxC; q++){ var v = cc[x * maxC + q]; if(v > mx) mx = v; if(v < mn) mn = v; }
+    var e = Math.max(0, mx - mn - 1), d = e - exc[x];
+    exc[x] = e;
+    return d;
+  }
   function partido(f, m, s){
     var o = m * 4, a0 = f[o], a1 = f[o+1], b0 = f[o+2], b1 = f[o+3];
     var dp = toca(pc, a0, a1, s) + toca(pc, b0, b1, s);
     var dr = toca(oc, a0, b0, s) + toca(oc, a0, b1, s) + toca(oc, a1, b0, s) + toca(oc, a1, b1, s);
-    sp += dp; so += dr;
-    return W_C * dp + dr;
+    var dk = W_K && maxC > 1 ? cancha(a0, m, s) + cancha(a1, m, s) + cancha(b0, m, s) + cancha(b1, m, s) : 0;
+    sp += dp; so += dr; sk += dk;
+    return W_C * dp + W_K * dk + dr;
   }
   filas.forEach(function(f){ for(var m = 0; m < f.length / 4; m++) partido(f, m, 1); });
-  var mejorP = sp, mejorR = so, mejores = filas.map(function(f){ return f.slice(); });
+  var mejorP = sp, mejorK = sk, mejorR = so, mejores = filas.map(function(f){ return f.slice(); });
 
   var conPartido = [];
   filas.forEach(function(f, ri){ if(f.length) conPartido.push(ri); });
   if(!conPartido.length) return rounds;
 
   var canchas = filas[conPartido[0]].length / 4;
-  var pasos = Math.min(150000, 3000 * conPartido.length * canchas);
+  var pasos = Math.min(200000, (conCanchas ? 4000 : 2500) * conPartido.length * canchas);
   var T0 = 8, T1 = 0.05;
   for(var it = 0; it < pasos; it++){
     var T = T0 * Math.pow(T1 / T0, it / pasos);
     var f = filas[conPartido[Math.floor(Math.random() * conPartido.length)]];
     var p = Math.floor(Math.random() * f.length), q = Math.floor(Math.random() * f.length);
     if(p === q || (p >> 1) === (q >> 1)) continue;        // mismo hueco o mismos compañeros
-    var mp = p >> 2, mq = q >> 2, pareja = mp !== mq && Math.random() < 0.5;
+    var mp = p >> 2, mq = q >> 2, azar = Math.random();
+    var tipo = mp === mq ? 0 : azar < 0.4 ? 1 : azar < 0.6 ? 2 : 0;
     var cambia = function(){
-      var t;
-      if(pareja){                                           // cambiar parejas enteras de partido
-        var p0 = p & ~1, q0 = q & ~1;
-        t = f[p0]; f[p0] = f[q0]; f[q0] = t;
-        t = f[p0+1]; f[p0+1] = f[q0+1]; f[q0+1] = t;
+      var t, a, b, j;
+      if(tipo === 1){                                       // cambiar parejas enteras de partido
+        a = p & ~1; b = q & ~1;
+        for(j = 0; j < 2; j++){ t = f[a+j]; f[a+j] = f[b+j]; f[b+j] = t; }
+      }else if(tipo === 2){                                 // cambiar de cancha un partido entero
+        a = mp * 4; b = mq * 4;
+        for(j = 0; j < 4; j++){ t = f[a+j]; f[a+j] = f[b+j]; f[b+j] = t; }
       }else{ t = f[p]; f[p] = f[q]; f[q] = t; }
     };
     var d = partido(f, mp, -1) + (mq !== mp ? partido(f, mq, -1) : 0);
     cambia();
     d += partido(f, mp, 1) + (mq !== mp ? partido(f, mq, 1) : 0);
     if(d <= 0 || Math.random() < Math.exp(-d / T)){
-      if(sp < mejorP || (sp === mejorP && so < mejorR)){
-        mejorP = sp; mejorR = so; mejores = filas.map(function(x){ return x.slice(); });
+      if(sp < mejorP || (sp === mejorP && (sk < mejorK || (sk === mejorK && so < mejorR)))){
+        mejorP = sp; mejorK = sk; mejorR = so; mejores = filas.map(function(x){ return x.slice(); });
       }
     }else{
       partido(f, mp, -1); if(mq !== mp) partido(f, mq, -1);
@@ -2257,7 +2291,7 @@ function idealMates(){
   return Math.min(n - 1, rounds - (restPerRound() * rounds / n));
 }
 function drawQuality(rounds){
-  var mates = {}, pc = {}, oc = {}, maxRep = 0, compSq = 0, rivSq = 0;
+  var mates = {}, pc = {}, oc = {}, maxRep = 0, compSq = 0, rivSq = 0, maxRiv = 0;
   S.players.forEach(function(p){ mates[p.id] = {}; });
   rounds.forEach(function(r){
     r.matches.forEach(function(m){
@@ -2273,6 +2307,7 @@ function drawQuality(rounds){
         var k = key2(x, y);
         oc[k] = (oc[k] || 0) + 1;
         rivSq += 2 * oc[k] - 1;
+        if(oc[k] > maxRiv) maxRiv = oc[k];
       }); });
     });
   });
@@ -2282,7 +2317,7 @@ function drawQuality(rounds){
   // Desequilibrio de canchas: cuánto se aleja cada uno del reparto ideal.
   var canchas = 1;
   rounds.forEach(function(r){ canchas = Math.max(canchas, r.matches.length); });
-  var cc = {}, desv = 0;
+  var cc = {}, desv = 0, exceso = 0;
   rounds.forEach(function(r){
     r.matches.forEach(function(m, ci){
       m.a.concat(m.b).forEach(function(id){
@@ -2296,9 +2331,10 @@ function drawQuality(rounds){
     for(var c = 0; c < canchas; c++) v.push(cc[id][c] || 0);
     var sp = Math.max.apply(null, v) - Math.min.apply(null, v);
     desv += sp * sp;          // al cuadrado: un caso muy desigual pesa más que varios leves
+    if(sp > 1) exceso += sp - 1;
   });
 
-  return { min: min === Infinity ? 0 : min, maxRep: maxRep, compSq: compSq, rivSq: rivSq, desv: desv };
+  return { min: min === Infinity ? 0 : min, maxRep: maxRep, compSq: compSq, rivSq: rivSq, maxRiv: maxRiv, exceso: exceso, desv: desv };
 }
 
 /* Sortea el cuadro entero. Cada ronda ve las anteriores, por eso van rotando.
@@ -2311,24 +2347,33 @@ function drawAll(){
   syncCourts();
   var total = plannedTotal();
   var ideal = idealMates();
-  var attempts = actives().length >= 12 ? 3 : 6;
+  var attempts = 4;
   var whist = hayWhist();
   var best = null, bq = null;
 
-  for(var k = 0; k < attempts; k++){
+  /* Si después de los intentos normales alguien sigue con las canchas
+     desparejas, se prueban hasta 4 más mirándolas. Solo cuesta tiempo cuando
+     hace falta. */
+  for(var k = 0; k < attempts || (k < attempts + 4 && S.format === "americano" && bq.exceso > 0); k++){
     S.rounds = [];
     if(whist) S.rounds = cuadroWhist(total);
     else for(var i = 0; i < total; i++) S.rounds.push(buildRound());
     if(S.format === "americano"){
-      pulirCuadro(S.rounds);           // que nadie repita compañero si se puede evitar
-      equilibrarCanchas(S.rounds);     // mueve jugadores sueltos
+      /* Un intento sí y otro no, el pulido mira también las canchas. Sin
+         mirarlas suelen salir mejores rivales y a veces las canchas se pueden
+         emparejar igual después; cuando no, gana el intento que las miró. */
+      pulirCuadro(S.rounds, k % 2 === 1);   // que nadie repita compañero si se puede evitar
+      equilibrarCanchas(S.rounds);          // que todos pasen por todas las canchas
     }
     /* Manda, por orden: que el peor servido tenga más compañeros distintos,
        que nadie repita compañero más veces de la cuenta, que las repeticiones
-       y los rivales queden lo más repartidos posible y, al final, las canchas. */
+       queden repartidas, que nadie tenga más de 1 partido de diferencia entre
+       canchas, que los rivales queden lo más repartidos posible (y que ningún
+       par se enfrente demasiadas veces) y, al final, las canchas afinadas. */
     var q = drawQuality(S.rounds);
     var mejor = !bq || (q.min - bq.min || bq.maxRep - q.maxRep || bq.compSq - q.compSq ||
-                        bq.rivSq - q.rivSq || bq.desv - q.desv) > 0;
+                        bq.exceso - q.exceso || bq.rivSq - q.rivSq || bq.maxRiv - q.maxRiv ||
+                        bq.desv - q.desv) > 0;
     if(mejor){ best = S.rounds; bq = q; }
   }
   S.rounds = best;
